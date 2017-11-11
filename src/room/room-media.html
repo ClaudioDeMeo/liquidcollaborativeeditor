@@ -1,0 +1,329 @@
+<!--
+@license
+-->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../../bower_components/iron-image/iron-image.html">
+<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../../bower_components/app-storage/app-localstorage/app-localstorage-document.html">
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/social-icons.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/iron-icons/av-icons.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+
+
+<link rel="import" href="../base/utils-behavior.html">
+
+<script src="../../bower_components/webrtc-adapter/release/adapter.js"></script>
+<!-- <script src="../js/janus.nojquery.js" type="text/javascript"></script> -->
+
+<dom-module id="room-media">
+  <template>
+    <style include="shared-styles">
+    :host {
+        /* paper dialog */
+        --paper-dialog: {
+          width: 90vw;
+        }
+        @media (max-width: 500px){
+          --paper-dialog: {
+            width: 100vw;
+          }
+        }
+        --paper-dialog-scrollable: {
+          padding: 0 12px;
+          max-width: 100% !important;
+        }
+    }
+    </style>
+    <app-localstorage-document key="videoDeviceEnabled" data="{{videoDeviceEnabled}}"></app-localstorage-document>
+    <app-localstorage-document key="videoDeviceSelected" data="{{videoDeviceSelected}}"></app-localstorage-document>
+    <app-localstorage-document key="audioDeviceEnabled" data="{{audioDeviceEnabled}}"></app-localstorage-document>
+    <app-localstorage-document key="audioDeviceSelected" data="{{audioDeviceSelected}}"></app-localstorage-document>
+
+    <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
+      <div class="layout horizontal center">
+        <h2>Media settings</h2>
+        <paper-icon-button icon="refresh" on-tap="updateDevices"></paper-icon-button>
+        <span class="flex"></span>
+        <paper-icon-button icon="close" dialog-dismiss></paper-icon-button>
+      </div>
+      <paper-dialog-scrollable>
+
+        <div class="layout vertical">
+          <div class="layout horizontal center">
+            <paper-toggle-button
+              checked="{{videoDeviceEnabled}}">Enable video</paper-toggle-button>
+            <paper-dropdown-menu
+                hidden$="[[!videoDeviceEnabled]]"
+                class="flex"
+                name="videoDevices"
+                label="Video device"
+                placeholder=""
+                no-animations>
+              <div slot="dropdown-content">
+                <paper-listbox vertical-align="center" selected="{{videoDeviceSelected}}" attr-for-selected="value">
+                  <template is="dom-repeat" items="[[videoDevices]]">
+                      <paper-item value="[[item.deviceId]]" title$="[[item.label]]">[[item.label]]</paper-item>
+                  </template>
+                </paper-listbox>
+              </div>
+            </paper-dropdown-menu>
+          </div>
+          <div class="layout horizontal center">
+            <paper-toggle-button
+              checked="{{audioDeviceEnabled}}">Enable audio</paper-toggle-button>
+            <paper-dropdown-menu
+                hidden$="[[!audioDeviceEnabled]]"
+                class="flex"
+                name="audioDevices"
+                label="Audio device"
+                placeholder=""
+                no-animations>
+              <div slot="dropdown-content">
+                <paper-listbox vertical-align="center" selected="{{audioDeviceSelected}}" attr-for-selected="value">
+                  <template is="dom-repeat" items="[[audioDevices]]">
+                      <paper-item value="[[item.deviceId]]" title$="[[item.label]]">[[item.label]]</paper-item>
+                  </template>
+                </paper-listbox>
+              </div>
+            </paper-dropdown-menu>
+          </div>
+          <div class="layout horizontal center">
+            <paper-input
+              label="Bitrate limit"
+              name="bitrate"
+              value="{{bitrate}}"
+              type="number"
+              placeholder="Bitrate limit"
+              min="1000"
+              max="10000000"
+            ></paper-input>
+          </div>
+        </div>
+
+      </paper-dialog-scrollable>
+      <div class="buttons">
+        <paper-button dialog-dismiss>
+          <iron-icon icon="close"></iron-icon>
+          <span>Cancel</span>
+        </paper-button>
+        <paper-button id="actionButton" on-tap="onSubmit"
+            disabled$="[[!_addEnabled(videoDeviceEnabled, audioDeviceEnabled)]]" autofocus>
+          <iron-icon icon="check"></iron-icon>
+          <span hidden$="[[loading]]">Add</span>
+        </paper-button>
+      </div>
+    </paper-dialog>
+  </template>
+</dom-module>
+<script>
+"use strict";
+
+Polymer({
+    is: 'room-media',
+
+    behaviors: [
+    ],
+
+    properties: {
+      room: {
+        type: Object,
+        value: null,
+        notify: true,
+        observer: '_roomChanged',
+      },
+      //
+      videoDeviceEnabled: {
+        type: Boolean,
+        value: true,
+        notify: true,
+      },
+      videoDevices: {
+        type: Array,
+        value: function(){ return [] },
+        notify: true,
+      },
+      videoDeviceSelected: {
+        type: String,
+        value: 'auto',
+        notify: true,
+      },
+      audioDeviceEnabled: {
+        type: Boolean,
+        value: true,
+        notify: true,
+      },
+      audioDevices: {
+        type: Array,
+        value: function(){ return [] },
+        notify: true,
+      },
+      audioDeviceSelected: {
+        type: String,
+        value: 'auto',
+        notify: true,
+      },
+      bitrate: {
+        type: Number,
+        value: 462000,
+        notify: true,
+      },
+    },
+
+    log:console.log,
+
+    ready: function(){
+      var self = this;
+      self.updateDevices();
+    },
+
+    _roomChanged: function(room, old){
+      var self = this;
+      //
+      if(room){
+        //self.log('_roomChanged', room);
+        if(self.bitrate === 0){
+          self.bitrate = room.bitrate;
+        }
+        self.updateDevices();
+      }
+    },
+
+    _addEnabled: function(videoDeviceEnabled, audioDeviceEnabled){
+      return videoDeviceEnabled || audioDeviceEnabled;
+    },
+
+    updateDevices: function(){
+      var self = this;
+      self.log('updateDevices');
+      //
+      Janus.listDevices(function(devices){
+        self.log('listDevices:', devices);
+        self.videoDevices = devices.filter(function(d){
+          return d.kind === 'videoinput';
+        });
+        self.videoDevices.splice(0, 0, {
+          deviceId: 'screen',
+          label: 'Screenshare',
+        });
+        self.videoDevices.splice(0, 0, {
+          deviceId: 'auto',
+          label: 'Auto',
+        });
+        self.audioDevices = devices.filter(function(d){
+          return d.kind === 'audioinput';
+        });
+        self.audioDevices.splice(0, 0, {
+          deviceId: 'auto',
+          label: 'Auto',
+        });
+      });
+    },
+
+    //
+    onOpen: function(){
+      var self = this;
+      setTimeout(function(){
+        self.$.dialog.notifyResize();
+      }, 100);
+    },
+
+    onCancel: function(e){
+      var self = this;
+      self.log('onCancel', e.detail);
+      // handle paper-dropdown-menu events #FIXME
+      if(e.detail.confirmed === undefined){
+        e.preventDefault();
+        self.$.dialog.notifyResize();
+        return;
+      }
+      self.fire('cancel');
+      this.remove();
+    },
+
+    onSubmit: function(e){
+      var self = this;
+      self.log('onSubmit', e.detail);
+      //
+      var result = {
+        video: self.videoDeviceEnabled,
+        audio: self.audioDeviceEnabled,
+        videoSend: self.videoDeviceEnabled,
+        audioSend: self.audioDeviceEnabled,
+        bitrate: parseInt(self.bitrate),
+        display: [0, 0],
+      };
+      if(self.videoDeviceEnabled){
+        if(self.videoDeviceSelected === 'screen'){
+          result.video = 'screen';
+          result.display[0] = 254;
+        }
+        else if(self.videoDeviceSelected !== 'auto'){
+          result.video = {
+            deviceId: {
+              exact: self.videoDeviceSelected,
+            },
+            //width: 1920,
+            //height: 1080,
+          }
+        }
+        var index = self.videoDevices.findIndex(function(d){
+          return d.deviceId === self.videoDeviceSelected;
+        });
+        result.videoDisplay = self.videoDevices[index].label;
+        result.display[0] = index + 2;
+      }
+      //
+      if(self.audioDeviceEnabled){
+        if(self.audioDeviceSelected !== 'auto'){
+          result.audio = {
+            deviceId: {
+              exact: self.audioDeviceSelected,
+            },
+          }
+        }
+        var index = self.audioDevices.findIndex(function(d){
+          return d.deviceId === self.audioDeviceSelected;
+        });
+        result.audioDisplay = self.audioDevices[index].label;
+        result.display[1] = index + 2;
+      }
+      //
+      this.fire('submit', { detail: result });
+      this.$.dialog.close();
+      this.remove();
+    },
+
+});
+
+function MediaDialog(cb){
+  var el = document.createElement('room-media');
+  el.addEventListener('submit', function(e){
+    if(e.defaultPrevented){
+      return;
+    }
+    //console.log('ModalForm submit', e.detail)
+    cb && cb(null, e.detail);
+    el.remove();
+  });
+  el.addEventListener('cancel', function(e){
+    if(e.defaultPrevented){
+      return;
+    }
+    //console.log('ModalForm cancel', e.detail);
+    cb && cb(e.detail);
+    el.remove();
+  });
+  document.querySelector('body').appendChild(el);
+  return el;
+}
+</script>

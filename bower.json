@@ -61,7 +61,8 @@
     "webrtc-adapter": "webrtc/adapter#^5.0.4",
     "app-storage": "PolymerElements/app-storage#^2.0.2",
     "iron-a11y-keys": "PolymerElements/iron-a11y-keys#^2.0.0",
-    "juicy-ace-editor": "^2.0.4"
+    "juicy-ace-editor": "^2.0.4",
+    "paper-dropdown-input": "ClaudioDeMeo/paper-dropdown-input#^2.5.2"
   },
   "resolutions": {
     "async": "^2.4.0",

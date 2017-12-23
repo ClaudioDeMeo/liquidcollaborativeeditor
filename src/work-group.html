@@ -715,7 +715,7 @@
                 media: {
                   audioSend: false,
                   videoSend: false,
-                  data: true
+                  data: remotePublisher.data
                 },	// We want recvonly audio/video
                 success: function(jsep) {
                   self.log('openRemotePublisher', "Got SDP!", jsep);

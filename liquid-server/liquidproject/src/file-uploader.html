@@ -1,0 +1,333 @@
+<!--
+@license
+-->
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../bower_components/paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-dropdown-input/paper-dropdown-input.html">
+
+<dom-module id="file-uploader">
+  <template>
+    <style include="shared-styles">
+
+      #filesBtn{
+        margin-top: 10px;
+      }
+
+      paper-dialog-scrollable{
+        margin-top: 0px;
+      }
+
+      #fileError{
+        margin: 0px;
+        color: red;
+      }
+    </style>
+
+    <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
+      <div class="layout horizontal center">
+        <h2>File Upload</h2>
+        <span class="flex"></span>
+        <paper-icon-button title="Dismiss" icon="close" dialog-dismiss></paper-icon-button>
+      </div>
+      <samll id="fileError" hidden>File already exist</samll>
+      <hr>
+      <paper-dialog-scrollable>
+        <!-- FORM -->
+        <form id="form" method="post" enctype="multipart/form-data" action="/upload">
+          <!-- FILES -->
+          <input type="file" id="fileInput" name="files" value="" hidden multiple required></input>
+          <!-- LANGUAGE -->
+          <input type="text" id="languageInput" name="language" value="" hidden required></input>
+          <!-- ROOM -->
+          <input type="text" id="roomInput" name="room" value="" hidden required></input>
+        </form>
+
+        <!-- FILES -->
+        <div>
+          <paper-button id="filesBtn" raised on-tap="choseFiles">
+            <iron-icon icon="search"></iron-icon>
+            Chose Files
+          </paper-button>
+          <p id="files"></p>
+        </div>
+
+        <!-- LANGUAGE -->
+        <paper-dropdown-input id="languageSelector"
+          name="lanugage"
+          label="Language"
+          horizontal-align="right"
+          notfoundmessage="Language not found"
+          items="[[language]]"
+          max-size=150
+          value="{{selectedLanguage}}">
+          <template>
+            <template is="dom-repeat" items="[[items]]" as="item">
+              <paper-item>[[item]]</paper-item>
+            </template>
+          </template>
+        </paper-dropdown-input>
+
+        <!-- ROOM -->
+        <div>
+          <paper-dropdown-input id="roomSelector"
+            name="room"
+            label="Room"
+            horizontal-align="right"
+            notfoundmessage="Room not found"
+            items="[[roomList]]"
+            max-size=150
+            value="{{selectedRoom}}"
+            on-tap="getRoomList">
+            <template>
+              <template is="dom-repeat" items="[[items]]" as="item">
+                <paper-item>[[item]]</paper-item>
+              </template>
+            </template>
+          </paper-dropdown-input>
+          <paper-button id="roomBtn" raised on-tap="newRoom">
+            <iron-icon icon="add"></iron-icon>
+            New Room
+          </paper-button>
+        </div>
+
+      </paper-dialog-scrollable>
+      <hr>
+      <div class="buttons">
+        <paper-button raised dialog-dismiss>
+          <iron-icon icon="close"></iron-icon>
+          <span>Cancel</span>
+        </paper-button>
+        <paper-button id="actionButton" on-tap="submit" raised autofocus disabled>
+          <iron-icon icon="check"></iron-icon>
+          <span>Ok</span>
+        </paper-button>
+      </div>
+    </paper-dialog>
+  </template>
+</dom-module>
+<script type = "text/javascript" src = "base/config-editor.js"></script>
+<script>
+  "use strict";
+  Polymer({
+      is: 'file-uploader',
+
+      behaviors: [
+      ],
+
+      properties: {
+        janus: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        janusRoom: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        roomList:{
+          type: Array,
+          value: function(){ return [] },
+          notify: true,
+        },
+        selectedRoom: {
+          type: String,
+          value: "",
+          notify: true,
+          observer: "_checkInput",
+        },
+        language: {
+          type: Array,
+          value: editor.LANGUAGE,
+          notify: true,
+        },
+        selectedLanguage: {
+          type: String,
+          value: "",
+          notify: true,
+          observer: "_checkInput",
+        },
+      },
+
+      log:console.log,
+
+      ready: function(){
+        var self = this;
+        self.janusConnection();
+        self.$.fileInput.onchange = function(){
+          if(self.$.fileInput.files.length > 1){
+            self.$.files.innerHTML = self.$.fileInput.files.length + " files";
+          }else if(self.$.fileInput.files.length > 0){
+            self.$.files.innerHTML = self.$.fileInput.files[0].name;
+          }
+        self._checkInput();
+        };
+      },
+
+      _checkInput: function(){
+        var self = this;
+        if(self.$.fileInput.files.length>0 && self.selectedRoom!="" && self.selectedLanguage!=""){
+          self.$.fileInput.setAttribute('value',self.$.fileInput.value);
+          self.$.languageInput.setAttribute('value',self.selectedLanguage);
+          self.$.roomInput.setAttribute('value',self.selectedRoom);
+          self.$.actionButton.disabled = false;
+        }else{
+          self.$.actionButton.disabled = true;
+        }
+      },
+
+      janusConnection: function(){
+        var self = this;
+        self.janus = startSession(function(){
+          self.janus.attach({
+            plugin: "janus.plugin.videoroom",
+            success: function(pluginHandle){
+              self.janusRoom = pluginHandle;
+              self.getRoomList();
+            },
+            error: function(cause) {
+              self.log("join Couldn't attach to the plugin because: "+cause);
+            }
+          });
+        },function(){
+          self.log("janus error");
+        });
+      },
+
+      getRoomList: function(cb){
+        var self = this;
+        self.janusRoom.send({
+          message :{
+            request: "list"
+          },
+          success: function(result){
+            var rooms = result["list"];
+            self.roomList = [];
+            if (rooms.length>0){
+              rooms.forEach(function(element){
+                self.push('roomList',element.room.toString());
+              });
+            }
+            cb && cb();
+          },error:function(cause){
+            self.log("Request list error because: " + cause);
+          }
+        });
+      },
+
+      choseFiles: function(){
+        var self = this;
+        self.$.fileInput.click();
+        self.$.fileError.hidden = true;
+      },
+
+      onOpen: function(){
+        var self = this;
+        setTimeout(function(){
+          self.$.dialog.notifyResize();
+        }, 100);
+      },
+
+      onCancel: function(e){
+        var self = this;
+        self.log('onCancel', e.detail);
+        if(e.detail.confirmed === undefined){
+          e.preventDefault();
+          self.$.dialog.notifyResize();
+          return;
+        }
+        var result = false;
+        self.fire('cancel', {detail: result});
+        this.remove();
+      },
+
+      newRoom: function(){
+        var self = this;
+        self.getRoomList(()=>{
+          var self = this;
+          var newRoom = (Math.round((Math.random() * 10000) + 1)).toString();
+          var index = null;
+          do {
+            index = self.roomList.find(function(element){
+              return element == newRoom;
+            });
+          }while(index != undefined);
+          self.push('roomList',newRoom);
+          self.selectedRoom = newRoom;
+          self.$.roomSelector.value = newRoom;
+        });
+      },
+
+      submit: function(e){
+        var self = this;
+        self.log('submit', e.detail);
+        self.getRoomList(()=>{
+          var self = this;
+          var index = self.roomList.find(function(element){
+            return element == self.selectedRoom;
+          });
+          if (index==undefined){//if the room doesn't exist create new one
+            self.janusRoom.send({
+              message: {
+                request: "create",
+                room: parseInt(self.selectedRoom),
+                is_private: false,
+                publishers : 10,
+                bitrate: 128000
+              },
+              success: function(result){
+          			self.log("Room created");
+          		},
+          		error: function(cause){
+          			self.log("Request create error because: " + cause);
+          		}
+            });
+          }
+        });
+        var data = new FormData(self.$.form);
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function(){
+          if(this.readyState == 4 && (this.status == 0 || this.status == 406)){  //ERROR
+            self.log("upload File error");
+            self.$.fileError.hidden = false;
+          }else if (this.readyState == 4 && this.status == 200){
+            var result = true;
+            self.fire('submit', { detail: result });
+            self.$.dialog.close();
+            self.remove();
+          }
+        };
+        request.error = function(error){
+          self.log("upload File error: ",error);
+        };
+        request.open('POST','/upload',true);
+        request.send(data);
+      },
+
+  });
+
+  function DialogUpload(cb){
+    var el = document.createElement('file-uploader');
+    el.addEventListener('submit', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    el.addEventListener('cancel', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    document.querySelector('body').appendChild(el);
+    return el;
+  }
+</script>

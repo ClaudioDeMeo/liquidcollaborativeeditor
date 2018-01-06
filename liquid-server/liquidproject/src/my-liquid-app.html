@@ -1,0 +1,160 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/app-layout/app-drawer-layout/app-drawer-layout.html">
+<link rel="import" href="../bower_components/app-layout/app-header/app-header.html">
+<link rel="import" href="../bower_components/app-layout/app-drawer/app-drawer.html">
+<link rel="import" href="../bower_components/app-layout/app-header-layout/app-header-layout.html">
+<link rel="import" href="../bower_components/app-layout/app-scroll-effects/app-scroll-effects.html">
+<link rel="import" href="../bower_components/app-layout/app-toolbar/app-toolbar.html">
+<!-- <link rel="import" href="../bower_components/iron-flex-layout/iron-flex-layout-classes.html"> -->
+<link rel="import" href="../bower_components/iron-selector/iron-selector.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/iron-icons/social-icons.html">
+<link rel="import" href="../bower_components/iron-icons/av-icons.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+
+<!-- <link rel="import" href="shared-styles.html"> -->
+<!-- <link rel="import" href="base/utils-behavior.html"> -->
+<link rel="import" href="work-group.html">
+<link rel="import" href="file-manager.html">
+<link rel="import" href="code-editor.html">
+<!-- <script src="js/janus.nojquery.js" type="text/javascript"></script> -->
+
+<dom-module id="my-liquid-app">
+  <template>
+    <style include="shared-styles">
+
+      :host {
+        --app-primary-color: #4285f4;
+        --app-secondary-color: black;
+
+        display: block;
+      }
+
+      app-drawer-layout:not([narrow]) [drawer-toggle] {
+        display: none;
+      }
+
+      app-header {
+        color: #fff;
+        background-color: var(--app-primary-color);
+      }
+
+      app-header paper-icon-button {
+        --paper-icon-button-ink-color: white;
+      }
+
+      /*app-drawer {
+      --app-drawer-scrim-background: rgba(0, 0, 100, 0.8);
+      --app-drawer-content-container: {
+      background-color: #B0BEC5;
+      }
+      }*/
+
+      code-editor {
+        width: 100%;
+        height: 100%;
+      }
+
+      .drawer-list {
+        margin: 0 20px;
+      }
+
+      .drawer-list a {
+        display: block;
+        padding: 0 16px;
+        text-decoration: none;
+        color: var(--app-secondary-color);
+        line-height: 40px;
+      }
+
+      .drawer-list a.iron-selected {
+        color: black;
+        font-weight: bold;
+      }
+
+      .container{
+        height: 100%;
+      }
+
+      #devDrawer{
+        top: inherit;
+        height: 100%;
+      }
+
+    </style>
+
+    <app-drawer-layout fullbleed narrow="{{narrow}}">
+      <!-- HEADER -->
+      <app-header-layout has-scrolling-region>
+        <app-header slot="header" condenses reveals effects="waterfall">
+          <app-toolbar>
+            <paper-icon-button icon="menu" drawer-toggle onclick#="devDrawer.toggle()"></paper-icon-button>
+            <div main-title>Liquid Collaborative Editor</div>
+            <!-- <paper-icon-button icon="menu" on-tap="toggleMenuDrawer"></paper-icon-button> -->
+          </app-toolbar>
+        </app-header>
+        <!-- MAIN CONTENT -->
+        <div class="layout horizontal wrap container">
+          <file-manager class="layout flex horizontal"
+          file="{{file}}"
+          room="{{room}}"
+          hidden$="[[file]]"></file-manager>
+          <code-editor datachannel="{{datachannel}}" file="{{file}}" hidden$="[[!file]]"></code-editor>
+        </div>
+      </app-header-layout>
+      <!-- DRAWER WORKGROUP -->
+      <app-drawer id="devDrawer" swipe-open slot="drawer">
+        <work-group id="workgroup" room="{{room}}" datachannel="{{datachannel}}"></work-group>
+      </app-drawer>
+      <!-- DRAWER MENU -->
+      <!-- <app-drawer id="menuDrawer" align="right" swipe-open>
+        <app-toolbar>Menu</app-toolbar>
+        <iron-selector attr-for-selected="name" class="nav-menu style-scope blog-app drawer-list" role="navigation">
+          <a name="view1" >View One</a>
+          <a name="view2" >View Two</a>
+          <a name="view3" >View Three</a>
+        </iron-selector>
+      </app-drawer> -->
+    </app-drawer-layout>
+  </template>
+
+  <script>
+    Polymer({
+      is:'my-liquid-app',
+      behaviors: [
+      ],
+      properties: {
+        room: {
+          type: Object,
+          value: null,
+          // {
+          //   _id:"",
+          //   secret:"",
+          // },
+          notify: true,
+        },
+        datachannel: {
+          type: Object,
+          value: {
+            data:null,
+            ondata:null,
+          },
+          notify: true,
+        },
+        file: {
+          type: String,
+          value: null,
+          notify: true,
+        }
+      },
+      // toggleMenuDrawer: function(){
+      //   var self=this;
+      //   self.$.menuDrawer.toggle();
+      // },
+    });
+  </script>
+</dom-module>

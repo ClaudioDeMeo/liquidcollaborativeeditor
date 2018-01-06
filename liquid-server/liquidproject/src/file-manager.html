@@ -1,0 +1,258 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+
+<link rel="import" href="file-uploader.html">
+<link rel="import" href="new-file.html">
+
+<dom-module id="file-manager">
+  <template>
+    <style include="shared-styles">
+
+      #uploadBtn,#file,#newFileBtn{
+        background: none;
+        margin-top: 3px;
+      }
+
+      #newFileBtn{
+        border-radius: 25px;
+        font-size: smaller;
+      }
+
+      #file{
+        border-radius: 25px;
+        max-width: 50vw;
+        overflow: hidden;
+      }
+
+      #uploadBtn:hover{
+        background: var(--primary-background-color);
+      }
+
+      #file:hover,#newFileBtn:hover{
+        font-style: oblique;
+        font-weight: bold;
+      }
+
+      .container{
+        height: 70vh;
+      }
+
+      #roomError{
+        margin: 0px;
+        color: red;
+      }
+
+      iron-list{
+        overflow-y: auto;
+      }
+
+      .card {
+        margin: 5px 24px 0px 24px;
+        height: 75vh;
+        width: -webkit-fill-available;
+        width: available;
+        width: fill-available;
+        width: -moz-available;
+        padding: 16px;
+        color: #757575;
+        border-radius: 5px;
+        background-color: #fff;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      .card-header {
+        padding: 16px;
+        font-size: 24px;
+        font-weight: 400;
+        color: #000;
+      }
+
+      .card-content {
+        overflow-y: auto;
+      }
+
+    </style>
+    <div class="flex">
+      <div class="layout flex horizontal center center-justified">
+        <paper-button id="uploadBtn" class="flex" on-tap="uploadFile">
+          <iron-icon icon="file-upload"></iron-icon>
+          Upload File
+        </paper-button>
+      </div>
+      <div class="card layout vertical" hidden$={{!room}}>
+        <div class="card-header layout horizontal">
+          <div>Room: {{room._id}}</div>
+          <span class="flex"></span>
+          <paper-button id="newFileBtn" on-tap="newFile">
+            <iron-icon icon="add-circle"></iron-icon>
+            New File
+          </paper-button>
+        </div>
+        <div class="card-content">
+          <template is="dom-repeat" items="[[list]]">
+            <hr>
+            <div class="layout horizontal center">
+              <paper-button id="file"
+              fid="[[item.fid]]"
+              on-tap="selectFile">
+                [[item.name]]
+              </paper-button>
+              <span class="flex"></span>
+              <paper-icon-button icon="delete-forever"></paper-icon-button>
+            </div>
+          </template>
+          <hr>
+        </div>
+      </div>
+      <div class="container layout vertical center center-justified" hidden$={{room}}>
+        <small id="roomError" hidden>room not found</small>
+        <paper-input
+        id="roomSelector"
+        label="Room"
+        name="room"
+        value="{{roomCandidate._id}}"
+        type="text"
+        placeholder="Insert Room"
+        on-keyup="_checkRoomInput">
+        </paper-input>
+        <paper-button raised on-tap="connectRoom">
+          <iron-icon icon="done"></iron-icon>
+          Connect
+        </paper-button>
+      </div>
+    </div>
+  </template>
+  <script>
+
+    Polymer({
+      is:'file-manager',
+      behaviors: [
+      ],
+      properties: {
+        room: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        roomCandidate: {
+          type: Object,
+          value: {
+            _id: "",
+            secret: "",
+          },
+          notify: true,
+        },
+        file: {
+          type: String,
+          value: null,
+          notify: true,
+        },
+        list: {
+          type: Array,
+          value: function(){ return [] },
+          notify: true,
+        }
+      },
+
+      log: console.log,
+
+      ready: function() {
+        var self = this;
+      },
+
+      _checkRoomInput: function(e){
+        var i = 1;
+        while ((isNaN(e.currentTarget.value) || e.currentTarget.value < 1 || e.currentTarget.value >= 100000) && e.currentTarget.value!=""){
+          e.currentTarget.value = e.currentTarget.value.slice(0,-i);
+          i++;
+        }
+        e.currentTarget.previousElementSibling.hidden = true;
+        if (e.key == "Enter"){
+          e.currentTarget.nextElementSibling.click();
+        }
+      },
+
+      uploadFile: function(){
+        var self = this;
+        DialogUpload();
+      },
+
+      newFile: function(){
+        var self = this;
+        DialogNewFile();
+      },
+
+      connectRoom: function(){
+        var self = this;
+        var janus = startSession(()=>{
+          janus.attach({
+            plugin: "janus.plugin.videoroom",
+            success: function(pluginHandle){
+              pluginHandle.send({
+                message :{
+                  request: "list"
+                },
+                success: function(result){
+                  var rooms = result["list"];
+                  self.roomList = [];
+                  if (rooms.length>0){
+                    var index = rooms.find(function(element){
+                      return element.room.toString()==self.roomCandidate._id;
+                    });
+                    if (index != undefined){
+                      self.$.roomError.hidden = true;
+                      self.set('room',self.roomCandidate);
+                      setInterval(function(){
+                        self.getFileList(self.room);
+                      },2000);
+                    }else{
+                      self.$.roomError.hidden = false;
+                    }
+                  }
+                },error:function(cause){
+                  self.log("Request list error because: " + cause);
+                }
+              });
+            },
+            error: function(cause) {
+              self.log("join Couldn't attach to the plugin because: "+cause);
+            }
+          });
+        },function(){
+          self.log("janus error");
+        });
+      },
+
+      getFileList: function(room){
+        var self = this;
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function(){
+          if (this.readyState == 4 && this.status == 200) {  //SUCCESS
+            var data = JSON.parse(request.responseText);
+            self.list = [];
+            if (data.list.length > 0){
+              self.set('list',data.list);
+            }
+          }else if(this.readyState == 4 && (this.status == 0 || this.status == 404) ){  //ERROR
+             self.room = null;
+          }
+        };
+        request.error = function(error){
+          self.log("getFileList error: ",error);
+        };
+        request.open('GET','/list/:' + self.room._id,true);
+        request.send();
+      },
+
+    });
+  </script>
+</dom-module>

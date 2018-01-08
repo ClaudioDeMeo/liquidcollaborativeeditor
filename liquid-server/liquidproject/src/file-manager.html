@@ -134,6 +134,7 @@
               <hr>
               <div class="layout horizontal center">
                 <paper-button class="file"
+                title="open"
                 file="[[item]]"
                 on-tap="selectFile">
                   [[item.name]]
@@ -142,12 +143,14 @@
                 <span class="flex"></span>
                 <paper-icon-button
                 icon="file-download"
+                title="download"
                 fid="[[item.fid]]"
                 fname="[[item.name]]"
                 on-tap="downloadFile">
                 </paper-icon-button>
                 <paper-icon-button
                 icon="delete-forever"
+                title="delete"
                 fid="[[item.fid]]"
                 on-tap="deleteFile">
                 </paper-icon-button>
@@ -209,6 +212,7 @@
           type: String,
           value: null,
           notify: true,
+          observer: "_fileObserver"
         },
         list: {
           type: Array,
@@ -224,9 +228,20 @@
 
       log: console.log,
 
+      _fileObserver: function(){
+        var self = this;
+        if (!self.refreshFileListInterval && !self.file && self.room){
+          self.refreshFileListInterval = setInterval(function(){
+            self.getFileList(self.room);
+          },2000);
+        }
+      },
+
       selectFile: function(e){
         var self = this;
         self.set('file',e.currentTarget.file);
+        clearInterval(self.refreshFileListInterval);
+        self.refreshFileListInterval = null;
       },
 
       deleteFile: function(e){
@@ -348,6 +363,7 @@
         var self = this;
         self.room = null;
         clearInterval(self.refreshFileListInterval);
+        self.refreshFileListInterval = null;
       },
 
       getFileList: function(room){

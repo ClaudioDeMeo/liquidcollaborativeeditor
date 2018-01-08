@@ -55,6 +55,7 @@
         height: 52px;
         background-color: var(--primary-background-color);
         color: var(--primary-text-color);
+        padding: 0px;
       }
 
       #fontSize, #tabSpace {
@@ -72,6 +73,7 @@
       .toolbarBtn{
         background-color: var(--primary-background-color);
         color: var(--primary-text-color);
+        margin-top: 12px;
       }
 
     </style>
@@ -84,7 +86,15 @@
           icon="arrow-back"
           on-tap="goBack"
           title="go back"></paper-icon-button>
-          <paper-dropdown-input class="editorMenu"
+          <paper-icon-button class="toolbarBtn"
+          icon="file-download"
+          title="download"
+          fid="{{file.fid}}"
+          fname="{{file.name}}"
+          on-tap="downloadFile">
+          </paper-icon-button>
+          <paper-dropdown-input id="themeSelector"
+            class="editorMenu"
             label="Theme"
             notfoundmessage="Theme not found"
             items="[[theme]]"
@@ -134,12 +144,13 @@
             items="[[language]]"
             max-size=150
             value$="{{selectedLanguage}}">
-            <template>
-              <template is="dom-repeat" items="[[items]]" as="item">
-                <paper-item>[[item]]</paper-item>
-              </template>
-            </template>
           </paper-dropdown-input>
+
+          <paper-icon-button class="toolbarBtn"
+          icon="exit-to-app"
+          title="exit"
+          on-tap="exitRoom">
+          </paper-icon-button>
         </app-toolbar>
       </app-header>
       <!-- CODE-EDITOR DEFINE -->
@@ -185,6 +196,7 @@
           type: String,
           value: 'html',
           notify: true,
+          observer: '_languageObserver',
         },
         theme: {
           type: Array,
@@ -195,6 +207,7 @@
           type: String,
           value: 'monokai',
           notify: true,
+          observer: '_themeObserver'
         },
         fontSize: {
           type: Number,
@@ -211,6 +224,11 @@
           value: null,
           notify: true,
           observer: "_fileobserver"
+        },
+        room: {
+          type: Object,
+          value: null,
+          notify: true,
         },
       },
 
@@ -232,11 +250,61 @@
         self.file = null;
       },
 
+      exitRoom:function(){
+        var self = this;
+        self.room = null;
+        self.file = null;
+      },
+
       _fileobserver: function(){
         var self = this;
         if (self.file){
           self.set('selectedLanguage',self.file.language);
         }
+      },
+
+      _languageObserver: function(){
+        var self = this;
+        self.$.languageSelector.value = self.selectedLanguage;
+      },
+
+      _themeObserver: function(){
+        var self = this;
+        self.$.themeSelector.value = self.selectedTheme;
+      },
+
+      downloadFile: function(e){
+        var self = this;
+        var request = new XMLHttpRequest();
+        var fname = e.currentTarget.fname;
+        request.onload = function(e){
+          switch (this.status){
+            case 200:
+              var blob = new Blob([this.response], {type: 'text/plain'});
+              var a = document.createElement("a");
+              a.style = "display: none";
+              document.body.appendChild(a);
+              var url = window.URL.createObjectURL(blob);
+              a.href = url;
+              a.download = fname;
+              a.click();
+              window.URL.revokeObjectURL(url);
+              a.parentNode.removeChild(a);
+              break;
+            case 500:
+              self.log("download error");
+              break;
+            case 404:
+              self.log("File not found");
+              break;
+          }
+        };
+        request.error = function(error){
+          self.log("downloadFile error: ",error);
+        };
+        request.open('GET','/download/' + e.currentTarget.fid,true);
+        request.responseType = 'blob';
+        request.send();
       },
 
       send: function(e){

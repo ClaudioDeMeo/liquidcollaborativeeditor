@@ -22,6 +22,11 @@
         margin-top: 0px;
       }
 
+      paper-dropdown-input{
+        --paper-input-container-input-color: white;
+        --paper-listbox-background-color: white;
+      }
+
       #fileError{
         margin: 0px;
         color: red;
@@ -55,11 +60,6 @@
           items="[[language]]"
           max-size=150
           value="{{selectedLanguage}}">
-          <template>
-            <template is="dom-repeat" items="[[items]]" as="item">
-              <paper-item>[[item]]</paper-item>
-            </template>
-          </template>
         </paper-dropdown-input>
 
         <!-- ROOM -->
@@ -73,11 +73,6 @@
             max-size=150
             value="{{selectedRoom}}"
             on-tap="getRoomList">
-            <template>
-              <template is="dom-repeat" items="[[items]]" as="item">
-                <paper-item>[[item]]</paper-item>
-              </template>
-            </template>
           </paper-dropdown-input>
           <paper-button id="roomBtn" raised on-tap="newRoom">
             <iron-icon icon="add"></iron-icon>

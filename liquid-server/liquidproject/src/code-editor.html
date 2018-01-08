@@ -11,6 +11,8 @@
 <link rel="import" href="../bower_components/paper-item/paper-item.html">
 <link rel="import" href="../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="../bower_components/iron-icons/editor-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 
 <link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
 
@@ -67,17 +69,26 @@
         min-width: 100px;
       }
 
+      .toolbarBtn{
+        background-color: var(--primary-background-color);
+        color: var(--primary-text-color);
+      }
+
     </style>
 
     <app-header-layout has-scrolling-region>
       <!-- TOOLBAR -->
       <app-header slot="header">
         <app-toolbar>
+          <paper-icon-button class="toolbarBtn"
+          icon="arrow-back"
+          on-tap="goBack"
+          title="go back"></paper-icon-button>
           <paper-dropdown-input class="editorMenu"
             label="Theme"
             notfoundmessage="Theme not found"
             items="[[theme]]"
-            value="{{selectedTheme}}">
+            value$="{{selectedTheme}}">
             <template>
               <p disabled>Bright</p>
               <template is="dom-repeat" items="[[_getBrightTheme(items)]]" as="item">
@@ -122,7 +133,7 @@
             notfoundmessage="Language not found"
             items="[[language]]"
             max-size=150
-            value="{{selectedLanguage}}">
+            value$="{{selectedLanguage}}">
             <template>
               <template is="dom-repeat" items="[[items]]" as="item">
                 <paper-item>[[item]]</paper-item>
@@ -194,7 +205,13 @@
           type: Number,
           value: 2,
           notify: true,
-        }
+        },
+        file: {
+          type: String,
+          value: null,
+          notify: true,
+          observer: "_fileobserver"
+        },
       },
 
       log: console.log,
@@ -208,6 +225,18 @@
         //   data=JSON.parse(data);
         //   self.$.textEditor.editor.insert(data.text);
         // };
+      },
+
+      goBack: function(){
+        var self = this;
+        self.file = null;
+      },
+
+      _fileobserver: function(){
+        var self = this;
+        if (self.file){
+          self.set('selectedLanguage',self.file.language);
+        }
       },
 
       send: function(e){

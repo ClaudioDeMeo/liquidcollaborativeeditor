@@ -860,15 +860,15 @@
       _roomChanged: function(room, old){
         var self = this;
         //
-        if(room){
-          //self.log('_roomChanged', room);
-          if(!room.running){
-            self.stop();
-          }
-        }
-        else{
+        // if(room){
+        //   //self.log('_roomChanged', room);
+        //   if(!room.running){
+        //     self.stop();
+        //   }
+        // }
+        // else{
           self.stop();
-        }
+        // }
       },
 
       filterRemotePublishers: function(publisher){

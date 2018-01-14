@@ -4,7 +4,7 @@ const formidable = require('formidable');
 const express = require('express');
 const bodyParser = require('body-parser');
 const prefix = config.PROJECTFOLDER;
-// var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
 var app = express();
 var path = require('path');
 var randomstring = require("randomstring");
@@ -41,9 +41,9 @@ app.use(bodyParser.urlencoded({
 
 //get file list
 app.get('/list/:room', function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  var filelist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   res.json({
-    list: Object.entries(flist).filter(function(element){
+    list: Object.entries(filelist).filter(function(element){
       return element[1].room == req.params.room;
     }).map(function(element){
       var el = element[1];
@@ -55,7 +55,6 @@ app.get('/list/:room', function(req,res){
 
 //download a file
 app.get('/download/:fid', function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fid = req.params.fid;
   if (flist[fid]){
     var fpath = path.join(path.join(prefix,flist[fid].room),flist[fid].name);
@@ -79,7 +78,6 @@ app.get('/download/:fid', function(req,res){
 
 //create new file
 app.post('/newfile',function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fdata = {
     name : req.body.name,
     language : req.body.language,
@@ -105,7 +103,7 @@ app.post('/newfile',function(req,res){
 
 //upload file
 app.post('/upload',function(req, res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  // var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var form = new formidable.IncomingForm();
   form.multiples = true;
   form.encoding = 'utf-8';
@@ -161,7 +159,7 @@ app.post('/upload',function(req, res){
 
 //delete file
 app.post('/delete', function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  // var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   if (flist[req.body.fid]){
     var file = path.join(path.join(prefix,flist[req.body.fid].room),flist[req.body.fid].name);
     if (fs.existsSync(file)){

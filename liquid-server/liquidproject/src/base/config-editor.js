@@ -162,3 +162,5 @@ var editor ={
     "vibrant_ink"
   ],
 };
+
+var socketServer = 'https://localhost:8140';

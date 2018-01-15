@@ -28,7 +28,7 @@ module.exports = function(server){
 
     //new client connection
     socket.on('ready', function(msg){
-      socket.join(msg.room);
+      socket.join(msg.fid);
       socket.room = msg.fid;
       fpath = path.join(path.join(prefix,flist[socket.room].room),flist[socket.room].name);
       console.log('new participant: %s in room: %s request file: %s',socket.id,socket.room,fpath);
@@ -48,8 +48,13 @@ module.exports = function(server){
     //new data from client
     socket.on('data', function(data){
       console.log("data:",data);
-      console.log(socket.room)
-      socket.broadcast.to(socket.room).emit('data', data);
+      // console.log("room:",socket.room);
+      // console.log("client list:");
+      // console.log(io.in(socket.room).clients(function(e,clients){
+      //   return clients.join('\n');
+      // }));
+      socket.broadcast.to(socket.room).emit('data',data);
+      // socket.broadcast.to(socket.room).emit('feedback',data);
       // if (fs.existsSync(fpath)){
       //   var file = fs.openSync(fpath,'rs+');
       //   switch (data.action){

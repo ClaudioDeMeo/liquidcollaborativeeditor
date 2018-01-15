@@ -192,10 +192,11 @@
         self.socket.emit('data',data);
         self.push('localBuffer',data);
       }else{
-        var start = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
-        var end = self.$.textEditor.editor.session.doc.indexToPosition(data.position.end);
-        var range = new Range(start.row,start.column,end.row,end.column);
-        _remove(start,end);
+        var range = {
+          start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+          end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+        };
+        _remove(range);
       }
     }
 
@@ -208,12 +209,10 @@
     }
 
     //utils function to remove in editor
-    function _remove(start,end){
+    function _remove(range){
       var self = document.querySelector('my-liquid-app').$.codeEditor;
-      var Range = window.ace.require('ace/range');
-      var range = new Range(start.row,start.column,end.row,end.column);
       self.$.textEditor.editor.removeAllListeners('change');
-      self.$.textEditor.editor.remove(range);
+      self.$.textEditor.editor.session.remove(range);
       self.$.textEditor.editor.on('change',_onDataChanged);
     }
 
@@ -312,6 +311,7 @@
           self.$.textEditor.setAttribute('readonly',true);
           self.socket.accidentalDisconnect = true;
         });
+
         self.socket.on('connect',function(){
           self.socket.emit('ready',{fid: self.file.fid});
           if (self.socket.accidentalDisconnect){
@@ -322,22 +322,37 @@
 
         //operation came from server
         self.socket.on('data', function(data){
-          self.push('remoteBuffer',data);
+          // self.push('remoteBuffer',data);
           if (!self.$.textEditor.editor.getReadOnly()){
-            while(self.remoteBuffer.length > 0){
-              var element = self.remoteBuffer.shift();
-              switch (element.action){
+            switch (data.action){
                 case 'insert':
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),element.text);
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
                   break;
                 case 'remove':
-                  var start = self.$.textEditor.editor.session.doc.indexToPosition(element.position.start);
-                  var end = self.$.textEditor.editor.session.doc.indexToPosition(element.position.end);
-                  var range = new Range(start.row,start.column,end.row,end.column);
-                  _remove(start,end);
+                  var range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                  };
+                  _remove(range);
                   break;
               }
-            }
+            // while(self.remoteBuffer.length > 0){
+            //   var element = self.remoteBuffer.shift();
+            //   switch (element.action){
+            //     case 'insert':
+            //       _insert(self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),element.text);
+            //       break;
+            //     case 'remove':
+            //       var range = {
+            //         start : self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),
+            //         end : self.$.textEditor.editor.session.doc.indexToPosition(element.position.end)
+            //       };
+            //       _remove(range);
+            //       break;
+            //   }
+            // }
+          }else{
+            self.push('remoteBuffer',data);
           }
         });
 
@@ -357,16 +372,20 @@
             if (data.position.start != element.position.start){
               switch (data.action){
                 case 'insert':
-                  var start = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
-                  var end = self.$.textEditor.editor.session.doc.indexToPosition(data.position.end);
-                  _remove(start,end);
+                  var range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                  };
+                  _remove(range);
                   _insert(self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),element.text);
                   break;
                 case 'remove':
                   _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),element.text);
-                  var start = self.$.textEditor.editor.session.doc.indexToPosition(element.position.start);
-                  var end = self.$.textEditor.editor.session.doc.indexToPosition(element.position.end);
-                  _remove(start,end);
+                  var range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(element.position.end)
+                  };
+                  _remove(range);
                   break;
               }
             }
@@ -387,6 +406,21 @@
               self.$.textEditor.editor.insert(e.currentTarget.result);
               self.$.textEditor.editor.on('change',_onDataChanged);
               self.$.textEditor.removeAttribute("readonly");
+              while(self.remoteBuffer.length > 0){
+                var data = self.remoteBuffer.shift();
+                switch (data.action){
+                  case 'insert':
+                    _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
+                    break;
+                  case 'remove':
+                    var range = {
+                      start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                      end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                    };
+                    _remove(range);
+                    break;
+                }
+              }
             });
             reader.readAsText(blob);
           });

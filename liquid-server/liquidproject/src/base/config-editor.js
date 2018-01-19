@@ -163,4 +163,6 @@ var editor ={
   ],
 };
 
-var socketServer = 'https://localhost:8140';
+var socketServer = (window.location.protocol==='https:') ?
+                'https://' + window.location.hostname + ':8140' :
+                'http://' + window.location.hostname + ':8040';

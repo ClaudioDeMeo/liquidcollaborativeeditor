@@ -174,23 +174,27 @@
     function _onDataChanged(e){
       var self = document.querySelector('my-liquid-app').$.codeEditor;
       var data = {
+        author : self.socket.id,
         action : e.action,
         timestamp : Date.now(),
+        text : e.lines.join('\n'),
         position : {
           start : self.$.textEditor.editor.session.doc.positionToIndex({
             row : e.start.row,
             column : e.start.column
           }),
-          end :  self.$.textEditor.editor.session.doc.positionToIndex({
-            row : e.end.row,
-            column : e.end.column
-          })
+          end : undefined,
         },
-        text : e.lines.join('\n')
+        lastRevision : self.revision,
       };
+      data.position.end = data.position.start + data.text.length;
       if (self.socket.connected){
-        self.socket.emit('data',data);
-        self.push('localBuffer',data);
+        if (self.toVerify){
+          self.push('toSend',data);
+        }else{
+          self.socket.emit('data',data);
+          self.set('toVerify',data);
+        }
       }else{
         var range = {
           start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
@@ -226,7 +230,17 @@
           value: null,
           notify: true,
         },
-        localBuffer: {
+        revision: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
+        toVerify: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        toSend: {
           type: Array,
           value: function(){ return [] },
           notify: true,
@@ -283,13 +297,11 @@
 
       log: console.log,
 
-      // ready: function() {
-      //   var self = this;
-      // },
-
       goBack: function(){
         var self = this;
         self.$.textEditor.editor.removeAllListeners('change');
+        self.$.textEditor.value = "";
+        self.revision = -1;
         self.socket = null;
         self.file = null;
       },
@@ -297,6 +309,8 @@
       exitRoom:function(){
         var self = this;
         self.$.textEditor.editor.removeAllListeners('change');
+        self.$.textEditor.value = "";
+        self.revision = -1;
         self.socket = null;
         self.room = null;
         self.file = null;
@@ -317,43 +331,44 @@
           if (self.socket.accidentalDisconnect){
             self.$.textEditor.removeAttribute("readonly");
             self.socket.accidentalDisconnect = false;
+            socket.emit('history',{revision : self.revision});
           }
+        });
+
+        self.socket.on('ok',function(msg){
+          self.revision = msg.revision;
         });
 
         //operation came from server
         self.socket.on('data', function(data){
-          // self.push('remoteBuffer',data);
           if (!self.$.textEditor.editor.getReadOnly()){
-            switch (data.action){
+            if (data.author != self.socket.id){
+              switch (data.action){
                 case 'insert':
+                  var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
                   _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
                   break;
                 case 'remove':
-                  var range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
-                  };
+                  var range = null;
+                  var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
+                    range = {
+                      start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                      end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                  }
                   _remove(range);
                   break;
               }
-            // while(self.remoteBuffer.length > 0){
-            //   var element = self.remoteBuffer.shift();
-            //   switch (element.action){
-            //     case 'insert':
-            //       _insert(self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),element.text);
-            //       break;
-            //     case 'remove':
-            //       var range = {
-            //         start : self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),
-            //         end : self.$.textEditor.editor.session.doc.indexToPosition(element.position.end)
-            //       };
-            //       _remove(range);
-            //       break;
-            //   }
-            // }
+              self.toSend.forEach(function(element,index){
+                if (data.position.start <= element.position.start){
+                  self.toSend[index].position.start += data.position.end - data.position.start;
+                  self.toSend[index].position.end += data.position.end - data.position.start;
+                }
+              });
+            }
           }else{
             self.push('remoteBuffer',data);
           }
+          self.set('revision',data.lastRevision);
         });
 
         //someone has deleted the file
@@ -363,33 +378,15 @@
 
         //feedback on data send
         self.socket.on('feedback', function(data){
-          var index = self.localBuffer.findIndex(function(element){
-            return element.timestamp == data.timestamp;
-          });
-          if (index){
-            var element = self.localBuffer[index];
-            self.localBuffer.splice(index,1);
-            if (data.position.start != element.position.start){
-              switch (data.action){
-                case 'insert':
-                  var range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
-                  };
-                  _remove(range);
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),element.text);
-                  break;
-                case 'remove':
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),element.text);
-                  var range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(element.position.start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(element.position.end)
-                  };
-                  _remove(range);
-                  break;
-              }
+          if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp){
+            self.toVerify = null;
+            if (self.toSend.length > 0){
+              var dataToSend = self.toSend.shift();
+              self.socket.emit('data', dataToSend);
+              self.set('toVerify',dataToSend);
             }
-          }else{  //ERROR
+            self.set('revision',data.lastRevision);
+          }else{  //ERROR Inconsistency of data
             self.goBack();
           }
         });

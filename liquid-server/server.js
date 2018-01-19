@@ -31,7 +31,6 @@ if (config.PROTOCOL == 'https'){
 
 //real-time comunication
 require('./socket')(server);
-
 console.log('server listen on port ' + port);
 
 app.use(bodyParser.json());
@@ -88,12 +87,13 @@ app.post('/newfile',function(req,res){
   var index = Object.keys(flist).find(function(element){
     return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
   });
-  if (index == undefined){
+  if (index === undefined){
     var fid = "";
     do {
       fid = randomstring.generate();
     }while(flist[fid]);
     flist[fid] = fdata;
+    fs.closeSync(fs.openSync(path.join(path.join(prefix,fdata.room),fdata.name), 'w'));
     fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
     res.status(200);
     res.end();

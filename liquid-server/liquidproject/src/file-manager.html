@@ -321,7 +321,7 @@
                 self.roomList = [];
                 if (rooms.length>0){
                   var index = rooms.find(function(element){
-                    return element.room.toString()==self.roomCandidate._id;
+                    return element.room.toString() == self.roomCandidate._id;
                   });
                   if (index != undefined){
                     self.$.roomError.hidden = true;
@@ -377,10 +377,10 @@
               self.set('list',data.list);
             }
             if (self.list.length == 0){
-              self.deleteRoom();
+              // self.deleteRoom();
             }
           }else if(this.readyState == 4 && (this.status == 0 || this.status == 404) ){  //ERROR
-             self.room = null;
+            self.room = null;
           }
         };
         request.error = function(error){

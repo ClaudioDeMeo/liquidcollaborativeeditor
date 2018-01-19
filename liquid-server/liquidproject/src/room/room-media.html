@@ -135,12 +135,12 @@ Polymer({
     ],
 
     properties: {
-      room: {
-        type: Object,
-        value: null,
-        notify: true,
-        observer: '_roomChanged',
-      },
+      // room: {
+      //   type: Object,
+      //   value: null,
+      //   notify: true,
+      //   // observer: '_roomChanged',
+      // },
       //
       videoDeviceEnabled: {
         type: Boolean,
@@ -186,17 +186,17 @@ Polymer({
       self.updateDevices();
     },
 
-    _roomChanged: function(room, old){
-      var self = this;
-      //
-      if(room){
-        //self.log('_roomChanged', room);
-        if(self.bitrate === 0){
-          self.bitrate = room.bitrate;
-        }
-        self.updateDevices();
-      }
-    },
+    // _roomChanged: function(room, old){
+    //   var self = this;
+    //   //
+    //   if(room){
+    //     //self.log('_roomChanged', room);
+    //     if(self.bitrate === 0){
+    //       self.bitrate = room.bitrate;
+    //     }
+    //     self.updateDevices();
+    //   }
+    // },
 
     _addEnabled: function(videoDeviceEnabled, audioDeviceEnabled){
       return videoDeviceEnabled || audioDeviceEnabled;

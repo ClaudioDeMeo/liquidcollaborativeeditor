@@ -41,19 +41,8 @@ module.exports = function(server){
     }
   });
 
-  //OT Function
-  function operationTransformation(data,fid,cb){
-    fhistory[fid].buffer.filter(function(element){
-      return element.position.start <= data.position.start;
-    }).forEach(function(element){
-      data.position.start += element.position.end - element.position.start;
-      data.position.end += element.position.end - element.position.start;
-    });
-    cb && cb(data);
-    return data;
-  }
-
   var io = require('socket.io')(server);
+
   io.on('connection', function(socket){
     var fpath = null;
     console.log("new client: " + socket.id);
@@ -63,10 +52,11 @@ module.exports = function(server){
       socket.join(msg.fid);
       socket.room = msg.fid;
       if (flist[socket.room] && fhistory[socket.room]){
-        fpath = path.join(path.join(prefix,flist[socket.room].room),flist[socket.room].name);
+        fpath = path.join(prefix,flist[socket.room].room,flist[socket.room].name);
         console.log('new participant: %s in room: %s request file: %s',socket.id,socket.room,fpath);
         socket.emit('ok',{revision: fhistory[socket.room].buffer.length})
       }else{
+        console.log("ready: file not found");
         socket.emit('fileNotFound', {error: 'file not found'});
       }
 
@@ -74,6 +64,12 @@ module.exports = function(server){
 
     socket.on('disconnect',function(e){
       console.log('participant: %s disconnect because: %s',socket.id,e);
+      if(!io.sockets.adapter.rooms[socket.room]){
+        fhistory[socket.room] = {
+          buffer : [],
+          busy : false
+        };
+      }
     });
 
     socket.on('history', function(msg){
@@ -82,6 +78,7 @@ module.exports = function(server){
           socket.emit('data', fhistory[socket.room].buffer[i]);
         }
       }else{
+        console.log('history: file not found');
         socket.emit('fileNotFound', {error: 'file not found'});
       }
     });
@@ -90,38 +87,41 @@ module.exports = function(server){
     socket.on('data', function(data){
       console.log("data-in:",data);
       if (fs.existsSync(fpath) && fhistory[socket.room]){
-        //Operation Transformation
         for (let i = data.lastRevision + 1; i< fhistory[socket.room].buffer.length; i++){
           var element = fhistory[socket.room].buffer[i];
           if (element.position.start <= data.position.start && data.author != element.author){
-            data.position.start += element.position.end - element.position.start;
-            data.position.end += element.position.end - element.position.start;
+            switch (element.action) {
+              case "insert":
+                data.position.start += element.position.end - element.position.start;
+                data.position.end += element.position.end - element.position.start;
+                break;
+              case "remove":
+                data.position.start -= element.position.end - element.position.start;
+                data.position.end -= element.position.end - element.position.start;
+                break;
+            }
           }
         }
         data.lastRevision = fhistory[socket.room].buffer.length;
         //
+        console.log("data-out:",data);
         socket.emit('feedback',data);
         socket.broadcast.to(socket.room).emit('data', data);
         fhistory[socket.room].buffer.push(data);
-        var file = fs.openSync(fpath,'rs+');
-        var position = (data.action == 'insert') ? data.position.start : data.position.end;
-        var content = fs.readFileSync(fpath).toString().substring(position);
         switch (data.action){
           case 'insert':
-            var text = data.text + content;
-            fs.writeSync(file, text, data.position.start, 'utf8');
+            var content = fs.readFileSync(fpath).toString();
+            var text = content.substring(0,data.position.start) + data.text + content.substring(data.position.start);
+            fs.writeFileSync(fpath,text);
             break;
           case 'remove':
-            var text = content;
-            fs.writeSync(file, text, data.position.start, 'utf8');
+            var content = fs.readFileSync(fpath).toString();
+            var text =  content.substring(0,data.position.start) + content.substring(data.position.end);
+            fs.writeFileSync(fpath,text);
             break;
         }
-        fs.close(file);
-        //
-        if (fhistory[socket.room].buffer.length >= config.HISTORY_LENGTH){
-          fhistory[socket.room].buffer.shift();
-        }
       }else{
+        console.log("data: file not found");
         socket.emit('fileNotFound', {error: 'file not found'});
         if (fhistory[socket.room]){
           delete fhistory[socket.room];

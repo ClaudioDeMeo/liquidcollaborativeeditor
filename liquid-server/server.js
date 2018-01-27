@@ -4,7 +4,6 @@ const formidable = require('formidable');
 const express = require('express');
 const bodyParser = require('body-parser');
 const prefix = config.PROJECTFOLDER;
-// var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
 var app = express();
 var path = require('path');
 var randomstring = require("randomstring");
@@ -57,7 +56,7 @@ app.get('/download/:fid', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fid = req.params.fid;
   if (flist[fid]){
-    var fpath = path.join(path.join(prefix,flist[fid].room),flist[fid].name);
+    var fpath = path.join(prefix,flist[fid].room,flist[fid].name);
     if (!fs.existsSync(fpath)){
       fpath = path.join(prefix,'empty.file');
     }
@@ -93,7 +92,10 @@ app.post('/newfile',function(req,res){
       fid = randomstring.generate();
     }while(flist[fid]);
     flist[fid] = fdata;
-    fs.closeSync(fs.openSync(path.join(path.join(prefix,fdata.room),fdata.name), 'w'));
+    if (!fs.existsSync(path.join(prefix,fdata.room))){
+      fs.mkdirSync(path.join(prefix,fdata.room));
+    }
+    fs.writeFileSync(path.join(prefix,fdata.room,fdata.name),"");
     fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
     res.status(200);
     res.end();
@@ -163,7 +165,7 @@ app.post('/upload',function(req, res){
 app.post('/delete', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   if (flist[req.body.fid]){
-    var file = path.join(path.join(prefix,flist[req.body.fid].room),flist[req.body.fid].name);
+    var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
     if (fs.existsSync(file)){
       fs.unlinkSync(file);
       if(fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).length == 0){

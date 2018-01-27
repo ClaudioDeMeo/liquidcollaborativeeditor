@@ -52,7 +52,7 @@
       }
 
       app-toolbar {
-        height: 52px;
+        height: 48px;
         background-color: var(--primary-background-color);
         color: var(--primary-text-color);
         padding: 0px;
@@ -73,7 +73,7 @@
       .toolbarBtn{
         background-color: var(--primary-background-color);
         color: var(--primary-text-color);
-        margin-top: 12px;
+        margin-top: 8px;
       }
 
     </style>
@@ -89,7 +89,7 @@
           <paper-icon-button id="downloadBtn"
           class="toolbarBtn"
           icon="file-download"
-          title="download"
+          title="download file"
           fname="{{file.name}}"
           on-tap="downloadFile"
           disabled>
@@ -115,25 +115,25 @@
 
           <paper-input class="editorMenu"
             id="fontSize"
-            label="Font Size"
+
             name="fontsizeInput"
             type="number"
             placeholder="Font Size"
             min="10"
             max="250"
-            value="{{fontSize}}">
+            value="{{fontSize}}"><!-- label="Font Size" -->
             <iron-icon icon="editor:format-size" slot="prefix"></iron-icon>
             <div slot="suffix">px</div>
           </paper-input>
           <paper-input class="editorMenu"
             id="tabSpace"
-            label="Tab Space"
+
             name="tabSpaceInput"
             type="number"
             placeholder="Tab Size"
             min="1"
             max="10"
-            value="{{tabSize}}">
+            value="{{tabSize}}"><!-- label="Tab Space" -->
             <iron-icon icon="editor:format-indent-increase" slot="prefix"></iron-icon>
           </paper-input>
           <span class="flex"></span>
@@ -161,8 +161,8 @@
         fontsize$="{{fontSize}}px"
         tabsize$="{{tabSize}}"
         wrapmode="true"
-        readonly
-        ></juicy-ace-editor>
+        readonly>
+      </juicy-ace-editor>
     </app-header-layout>
 
   </template>
@@ -209,7 +209,7 @@
       var self = document.querySelector('my-liquid-app').$.codeEditor;
       self.$.textEditor.editor.removeAllListeners('change');
       self.$.textEditor.editor.session.insert(position,text);
-      self.$.textEditor.editor.on('change',_onDataChanged);
+      self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
     }
 
     //utils function to remove in editor
@@ -217,7 +217,7 @@
       var self = document.querySelector('my-liquid-app').$.codeEditor;
       self.$.textEditor.editor.removeAllListeners('change');
       self.$.textEditor.editor.session.remove(range);
-      self.$.textEditor.editor.on('change',_onDataChanged);
+      self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
     }
 
     Polymer({
@@ -231,6 +231,11 @@
           notify: true,
         },
         revision: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
+        lastTimestamp: {
           type: Number,
           value: 0,
           notify: true,
@@ -259,7 +264,7 @@
           type: String,
           value: 'html',
           notify: true,
-          observer: '_languageObserver',
+          // observer: '_languageObserver',
         },
         theme: {
           type: Array,
@@ -270,7 +275,7 @@
           type: String,
           value: 'monokai',
           notify: true,
-          observer: '_themeObserver'
+          // observer: '_themeObserver'
         },
         fontSize: {
           type: Number,
@@ -283,7 +288,7 @@
           notify: true,
         },
         file: {
-          type: String,
+          type: Object,
           value: null,
           notify: true,
           observer: "filechanged"
@@ -297,23 +302,28 @@
 
       log: console.log,
 
+      ready: function() {
+        var self = this;
+        self.$.textEditor.editor.$blockScrolling = Infinity;
+      },
+
       goBack: function(){
         var self = this;
         self.$.textEditor.editor.removeAllListeners('change');
         self.$.textEditor.value = "";
+        self.remoteBuffer = [];
+        self.lastTimestamp = 0;
         self.revision = -1;
+        self.socket.close();
         self.socket = null;
+        self.toVerify = null;
         self.file = null;
       },
 
       exitRoom:function(){
         var self = this;
-        self.$.textEditor.editor.removeAllListeners('change');
-        self.$.textEditor.value = "";
-        self.revision = -1;
-        self.socket = null;
+        self.goBack();
         self.room = null;
-        self.file = null;
       },
 
       initSocket: function(){
@@ -331,44 +341,80 @@
           if (self.socket.accidentalDisconnect){
             self.$.textEditor.removeAttribute("readonly");
             self.socket.accidentalDisconnect = false;
-            socket.emit('history',{revision : self.revision});
+            self.socket.emit('history',{revision : self.revision});
           }
         });
 
         self.socket.on('ok',function(msg){
           self.revision = msg.revision;
+          self.socket.emit('history',{revision : self.revision});
         });
 
         //operation came from server
         self.socket.on('data', function(data){
           if (!self.$.textEditor.editor.getReadOnly()){
-            if (data.author != self.socket.id){
+            if (data.author != self.socket.id && data.timestamp!=self.lastTimestamp){
+              self.set('revision',data.lastRevision);
+              self.set('lastTimestamp',data.timestamp);
               switch (data.action){
                 case 'insert':
-                  var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
+                  var start= data.position.start;
+                  var end= data.position.end;
+                  if (self.toVerify && self.toVerify.position.start <= data.position.start){
+                    switch (self.toVerify.action) {
+                      case "insert":
+                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                      case "remove":
+                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                    }
+                  }
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(start),data.text);
                   break;
                 case 'remove':
-                  var range = null;
-                  var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
-                    range = {
-                      start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
-                      end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                  var start= data.position.start;
+                  var end= data.position.end;
+                  if (self.toVerify && self.toVerify.position.start <= data.position.start){
+                    switch (self.toVerify.action) {
+                      case "insert":
+                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                      case "remove":
+                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                    }
+                  }
+                  var range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
                   }
                   _remove(range);
                   break;
               }
               self.toSend.forEach(function(element,index){
+                self.toSend[index].lastRevision = self.revision;
                 if (data.position.start <= element.position.start){
-                  self.toSend[index].position.start += data.position.end - data.position.start;
-                  self.toSend[index].position.end += data.position.end - data.position.start;
+                  switch (data.action) {
+                    case "insert":
+                      self.toSend[index].position.start += data.position.end - data.position.start;
+                      self.toSend[index].position.end += data.position.end - data.position.start;
+                      break;
+                    case "remove":
+                      self.toSend[index].position.start -= data.position.end - data.position.start;
+                      self.toSend[index].position.end -= data.position.end - data.position.start;
+                      break;
+                  }
                 }
               });
             }
           }else{
             self.push('remoteBuffer',data);
           }
-          self.set('revision',data.lastRevision);
         });
 
         //someone has deleted the file
@@ -379,24 +425,29 @@
         //feedback on data send
         self.socket.on('feedback', function(data){
           if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp){
-            self.toVerify = null;
+            self.set('revision',data.lastRevision);
             if (self.toSend.length > 0){
               var dataToSend = self.toSend.shift();
+              dataToSend.lastRevision = self.revision;
               self.socket.emit('data', dataToSend);
               self.set('toVerify',dataToSend);
+            }else{
+              self.toVerify = null;
             }
-            self.set('revision',data.lastRevision);
           }else{  //ERROR Inconsistency of data
             self.goBack();
           }
         });
       },
 
-      filechanged: function(){
+      filechanged: function(oldVal,newVal){
         var self = this;
         if (self.file){
+          self.$.textEditor.value = "";
           self.initSocket();
           self.set('selectedLanguage',self.file.language);
+          self.$.languageSelector.value = self.selectedLanguage;
+          self.$.themeSelector.value = self.selectedTheme;
           self.download(function(blob){
             var reader = new FileReader();
             reader.addEventListener("loadend", function(e) {
@@ -424,15 +475,10 @@
         }
       },
 
-      _languageObserver: function(){
-        var self = this;
-        self.$.languageSelector.value = self.selectedLanguage;
-      },
-
-      _themeObserver: function(){
-        var self = this;
-        self.$.themeSelector.value = self.selectedTheme;
-      },
+      // _themeObserver: function(){
+      //   var self = this;
+      //   // self.$.themeSelector.value = self.selectedTheme;
+      // },
 
       download: function(cb){
         var self = this;

@@ -10,6 +10,8 @@
 <link rel="import" href="../bower_components/paper-input/paper-input.html">
 <link rel="import" href="../bower_components/paper-dropdown-input/paper-dropdown-input.html">
 
+<link rel="import" href="base/utils-behavior.html">
+
 <dom-module id="file-uploader">
   <template>
     <style include="shared-styles">
@@ -35,7 +37,8 @@
 
     <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
       <div class="layout horizontal center">
-        <h2>File Upload</h2>
+        <h2 hidden={{isnewfile}}>Upload File</h2>
+        <h2 hidden={{!isnewfile}}>New File</h2>
         <span class="flex"></span>
         <paper-icon-button title="Dismiss" icon="close" dialog-dismiss></paper-icon-button>
       </div>
@@ -43,23 +46,33 @@
       <hr>
       <paper-dialog-scrollable>
         <!-- FORM -->
-        <form id="form" method="post" enctype="multipart/form-data" action="/upload">
+        <form id="form" method="post" enctype="multipart/form-data" action="/upload" hidden={{isnewfile}}>
           <!-- FILES -->
           <input type="file" id="fileInput" name="files" value="" hidden multiple required></input>
           <!-- LANGUAGE -->
           <input type="text" id="languageInput" name="language" value="" hidden required></input>
           <!-- ROOM -->
           <input type="text" id="roomInput" name="room" value="" hidden required></input>
+          <!-- ROOM -->
+          <input type="text" id="passwordFormInput" name="password" value="" hidden></input>
         </form>
 
         <!-- FILES -->
-        <div>
+        <div hidden="{{isnewfile}}">
           <paper-button id="filesBtn" raised on-tap="choseFiles">
             <iron-icon icon="search"></iron-icon>
             Chose Files
           </paper-button>
           <p id="files"></p>
         </div>
+
+        <paper-input id="filename"
+        label="File"
+        type="text"
+        placeholder="Insert File Name"
+        value={{fileName}}
+        hidden={{!isnewfile}}>
+        </paper-input>
 
         <!-- LANGUAGE -->
         <paper-dropdown-input id="languageSelector"
@@ -81,13 +94,23 @@
             notfoundmessage="Room not found"
             items="[[roomList]]"
             max-size=150
-            value="{{selectedRoom}}"
-            on-tap="getRoomList">
+            value="{{selectedRoom}}">
           </paper-dropdown-input>
           <paper-button id="roomBtn" raised on-tap="newRoom">
             <iron-icon icon="add"></iron-icon>
             New Room
           </paper-button>
+        </div>
+
+        <div>
+          <paper-input
+            id="passwordInput"
+            label="Password"
+            name="password"
+            value="{{roomPassword}}"
+            type="password"
+            placeholder="Insert Password">
+          </paper-input>
         </div>
 
       </paper-dialog-scrollable>
@@ -112,17 +135,13 @@
       is: 'file-uploader',
 
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
 
       properties: {
-        janus: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        janusRoom: {
-          type: Object,
-          value: null,
+        isnewfile: {
+          type: Boolean,
+          value: true,
           notify: true,
         },
         roomList:{
@@ -130,16 +149,16 @@
           value: function(){ return [] },
           notify: true,
         },
-        selectedRoom: {
-          type: String,
-          value: "",
-          notify: true,
-          observer: "_checkInput",
-        },
         language: {
           type: Array,
           value: editor.LANGUAGE,
           notify: true,
+        },
+        fileName:{
+          type: String,
+          value: "",
+          notify: true,
+          observer: "_checkInput",
         },
         selectedLanguage: {
           type: String,
@@ -147,72 +166,59 @@
           notify: true,
           observer: "_checkInput",
         },
-      },
+        selectedRoom: {
+          type: String,
+          value: "",
+          notify: true,
+          observer: "_checkInput",
+        },
+        roomPassword: {
+          type: String,
+          value: "",
+          notify: true,
+          observer: "_checkInput",
+        },
 
-      log:console.log,
+      },
 
       ready: function(){
         var self = this;
-        self.janusConnection();
-        self.$.fileInput.onchange = function(){
-          if(self.$.fileInput.files.length > 1){
-            self.$.files.innerHTML = self.$.fileInput.files.length + " files";
-          }else if(self.$.fileInput.files.length > 0){
-            self.$.files.innerHTML = self.$.fileInput.files[0].name;
-          }
-        self._checkInput();
-        };
+        if(!self.janus){
+          self.createSession();
+        }
+        if (!self.isnewfile){
+          self.$.fileInput.onchange = function(){
+            if(self.$.fileInput.files.length > 1){
+              self.$.files.innerHTML = self.$.fileInput.files.length + " files";
+            }else if(self.$.fileInput.files.length > 0){
+              self.$.files.innerHTML = self.$.fileInput.files[0].name;
+            }
+          };
+          // self._checkInput();
+        }
+        setTimeout(function(){
+          self.getRoomList(function(result){
+            self.roomlist = [];
+            self.set("roomList", result.list.map(function(element){
+              return element.room;
+            }));
+          });
+        }, 200);
       },
 
       _checkInput: function(){
         var self = this;
-        if(self.$.fileInput.files.length>0 && self.selectedRoom!="" && self.selectedLanguage!=""){
-          self.$.fileInput.setAttribute('value',self.$.fileInput.value);
-          self.$.languageInput.setAttribute('value',self.selectedLanguage);
-          self.$.roomInput.setAttribute('value',self.selectedRoom);
+        if(((self.isnewfile && self.fileName!="") || (!self.isnewfile && self.$.fileInput.files.length>0)) && self.selectedRoom!="" && self.selectedLanguage!=""){
           self.$.actionButton.disabled = false;
+          if(!self.isnewfile){
+            self.$.fileInput.setAttribute('value',self.$.fileInput.value);
+            self.$.languageInput.setAttribute('value',self.selectedLanguage);
+            self.$.roomInput.setAttribute('value',self.selectedRoom);
+            self.$.passwordFormInput.setAttribute('value', self.roomPassword);
+          }
         }else{
           self.$.actionButton.disabled = true;
         }
-      },
-
-      janusConnection: function(){
-        var self = this;
-        self.janus = startSession(function(){
-          self.janus.attach({
-            plugin: "janus.plugin.videoroom",
-            success: function(pluginHandle){
-              self.janusRoom = pluginHandle;
-              self.getRoomList();
-            },
-            error: function(cause) {
-              self.log("join Couldn't attach to the plugin because: "+cause);
-            }
-          });
-        },function(){
-          self.log("janus error");
-        });
-      },
-
-      getRoomList: function(cb){
-        var self = this;
-        self.janusRoom.send({
-          message :{
-            request: "list"
-          },
-          success: function(result){
-            var rooms = result["list"];
-            self.roomList = [];
-            if (rooms.length>0){
-              rooms.forEach(function(element){
-                self.push('roomList',element.room.toString());
-              });
-            }
-            cb && cb();
-          },error:function(cause){
-            self.log("Request list error because: " + cause);
-          }
-        });
       },
 
       choseFiles: function(){
@@ -243,11 +249,15 @@
 
       newRoom: function(){
         var self = this;
-        self.getRoomList(()=>{
-          var self = this;
-          var newRoom = (Math.round((Math.random() * 10000) + 1)).toString();
+        self.getRoomList(function(result){
+          self.roomlist = [];
+          self.set("roomList", result.list.map(function(element){
+            return element.room;
+          }));
+          var newRoom = null;
           var index = null;
           do {
+            newRoom = (Math.round((Math.random() * 10000) + 1)).toString();
             index = self.roomList.find(function(element){
               return element == newRoom;
             });
@@ -261,8 +271,11 @@
       submit: function(e){
         var self = this;
         self.log('submit', e.detail);
-        self.getRoomList(()=>{
-          var self = this;
+        self.getRoomList(function(result){
+          self.roomlist = [];
+          self.set("roomList", result.list.map(function(element){
+            return element.room;
+          }));
           var index = self.roomList.find(function(element){
             return element == self.selectedRoom;
           });
@@ -270,7 +283,10 @@
             self.janusRoom.send({
               message: {
                 request: "create",
+                permanent: true,
                 room: parseInt(self.selectedRoom),
+                pin: (self.roomPassword != "") ? self.roomPassword : null,
+                secret: (self.roomPassword != "") ? self.roomPassword : null,
                 is_private: false,
                 publishers : 10,
                 bitrate: 128000
@@ -306,8 +322,11 @@
 
   });
 
-  function DialogUpload(cb){
+  function DialogUpload(type,cb){
     var el = document.createElement('file-uploader');
+    el.isnewfile = type;
+    el.janus = document.querySelector('my-liquid-app').janus;
+    el.videoroom = document.querySelector('my-liquid-app').videoroom;
     el.addEventListener('submit', function(e){
       if(e.defaultPrevented){
         return;

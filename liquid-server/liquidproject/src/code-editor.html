@@ -15,6 +15,7 @@
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 
 <link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
+<link rel="import" href="base/utils-behavior.html">
 
 <dom-module id="code-editor">
   <template>
@@ -223,6 +224,7 @@
     Polymer({
       is:'code-editor',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
         socket: {
@@ -240,6 +242,11 @@
           value: 0,
           notify: true,
         },
+        // toVerify: {
+        //   type: Array,
+        //   value: function(){ return [] },
+        //   notify: true,
+        // },
         toVerify: {
           type: Object,
           value: null,
@@ -264,7 +271,7 @@
           type: String,
           value: 'html',
           notify: true,
-          // observer: '_languageObserver',
+          observer: '_languageObserver',
         },
         theme: {
           type: Array,
@@ -300,8 +307,6 @@
         },
       },
 
-      log: console.log,
-
       ready: function() {
         var self = this;
         self.$.textEditor.editor.$blockScrolling = Infinity;
@@ -322,6 +327,12 @@
 
       exitRoom:function(){
         var self = this;
+        // self.$.textEditor.editor.removeAllListeners('change');
+        // self.$.textEditor.value = "";
+        // self.revision = -1;
+        // self.socket = null;
+        // self.room = null;
+        // self.file = null;
         self.goBack();
         self.room = null;
       },
@@ -350,6 +361,12 @@
           self.socket.emit('history',{revision : self.revision});
         });
 
+        //someone change language
+        // self.socket.on('changeLanguage',function(data){
+        //   self.socket.isChangeLanguage = true;
+        //   self.set('selectedLanguage', data.newLanguage);
+        // });
+
         //operation came from server
         self.socket.on('data', function(data){
           if (!self.$.textEditor.editor.getReadOnly()){
@@ -372,6 +389,7 @@
                         break;
                     }
                   }
+                  // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
                   _insert(self.$.textEditor.editor.session.doc.indexToPosition(start),data.text);
                   break;
                 case 'remove':
@@ -389,6 +407,7 @@
                         break;
                     }
                   }
+                  // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
                   var range = {
                     start : self.$.textEditor.editor.session.doc.indexToPosition(start),
                     end : self.$.textEditor.editor.session.doc.indexToPosition(end)
@@ -475,10 +494,21 @@
         }
       },
 
-      // _themeObserver: function(){
+      // _languageObserver: function(){
       //   var self = this;
-      //   // self.$.themeSelector.value = self.selectedTheme;
+      //   // self.$.languageSelector.value = self.selectedLanguage;
+      //   if (self.socket && !self.socket.isChangeLanguage){
+      //     // self.file.language = self.selectedLanguage;
+      //     self.socket.emit('changeLanguage',{newLanguage: self.selectedLanguage});
+      //   }else if (self.socket && self.socket.isChangeLanguage){
+      //     self.socket.isChangeLanguage = false;
+      //   }
       // },
+
+      _themeObserver: function(){
+        var self = this;
+        // self.$.themeSelector.value = self.selectedTheme;
+      },
 
       download: function(cb){
         var self = this;

@@ -138,6 +138,7 @@
     Polymer({
       is:'local-video-player',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
         publisher: {
@@ -151,8 +152,6 @@
           notify: true,
         },
       },
-
-      log: console.log,
 
       publisherVideoIcon: function(enabled){
         return enabled ? 'av:videocam' : 'av:videocam-off';

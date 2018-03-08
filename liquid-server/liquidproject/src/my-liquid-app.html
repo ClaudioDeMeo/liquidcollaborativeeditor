@@ -9,19 +9,21 @@
 <link rel="import" href="../bower_components/app-layout/app-header-layout/app-header-layout.html">
 <link rel="import" href="../bower_components/app-layout/app-scroll-effects/app-scroll-effects.html">
 <link rel="import" href="../bower_components/app-layout/app-toolbar/app-toolbar.html">
-<!-- <link rel="import" href="../bower_components/iron-flex-layout/iron-flex-layout-classes.html"> -->
 <link rel="import" href="../bower_components/iron-selector/iron-selector.html">
+<link rel="import" href="../bower_components/app-route/app-location.html">
+<link rel="import" href="../bower_components/app-route/app-route.html">
+<link rel="import" href="../bower_components/iron-pages/iron-pages.html">
 <link rel="import" href="../bower_components/iron-icons/iron-icons.html">
 <link rel="import" href="../bower_components/iron-icons/social-icons.html">
 <link rel="import" href="../bower_components/iron-icons/av-icons.html">
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/paper-toast/paper-toast.html">
 
-<!-- <link rel="import" href="shared-styles.html"> -->
-<!-- <link rel="import" href="base/utils-behavior.html"> -->
+<link rel="import" href="base/utils-behavior.html">
 <link rel="import" href="work-group.html">
 <link rel="import" href="file-manager.html">
 <link rel="import" href="code-editor.html">
-<!-- <script src="js/janus.nojquery.js" type="text/javascript"></script> -->
+<link rel="import" href="add-file.html">
 
 <dom-module id="my-liquid-app">
   <template>
@@ -59,7 +61,7 @@
         height: 100%;
       }
 
-      .drawer-list {
+      /* .drawer-list {
         margin: 0 20px;
       }
 
@@ -74,51 +76,120 @@
       .drawer-list a.iron-selected {
         color: black;
         font-weight: bold;
-      }
+      } */
 
-      .container{
+      /* .container{
         height: 100%;
-      }
+      } */
 
       #devDrawer{
         top: inherit;
         height: 100%;
       }
 
+      .main-content{
+        height: 100%;
+      }
+
+      .main-title{
+        color: white !important;
+      }
+
+      iron-pages *{
+        height: 100%;
+        max-height: 100%;
+      }
+
     </style>
+
+    <app-location
+        route="{{route}}"
+        url-space-regex="^[[rootPath]]">
+    </app-location>
+
+    <app-route
+        route="{{route}}"
+        pattern="[[rootPath]]:page"
+        data="{{routeData}}"
+        tail="{{subroute}}">
+    </app-route>
 
     <app-drawer-layout fullbleed narrow="{{narrow}}">
       <!-- HEADER -->
       <app-header-layout has-scrolling-region>
         <app-header slot="header" condenses reveals effects="waterfall">
           <app-toolbar>
-            <paper-icon-button icon="menu" drawer-toggle onclick#="devDrawer.toggle()"></paper-icon-button>
-            <div main-title>Liquid Collaborative Editor</div>
-            <!-- <paper-icon-button icon="menu" on-tap="toggleMenuDrawer"></paper-icon-button> -->
+            <template is="dom-if" if="{{room}} restamp">
+              <paper-icon-button icon="menu" drawer-toggle onclick#="devDrawer.toggle()"></paper-icon-button>
+            </template>
+            <a href="[[rootPath]]" class="main-title" onclick="window.location.replace('/')">
+              Liquid Collaborative Editor
+            </a>
           </app-toolbar>
         </app-header>
+
         <!-- MAIN CONTENT -->
-        <div class="layout horizontal wrap container">
+        <div class="layout vertical main-content">
+          <template is="dom-if" if="{{!file}}" restamp>
+            <add-file></add-file>
+          </template>
+          <div class="layout vertical flex center-justified">
+            <iron-pages
+              id="navigator"
+              class="layout vertical flex"
+              selected="[[page]]"
+              attr-for-selected="name"
+              fallback-selection="my-view404"
+              role="main">
+              <home-page id="home" name="home"
+                janus={{janus}}
+                room={{room}}
+                videoroom={{videoroom}}
+                roomcandidate={{roomcandidate}}
+                ></home-page>
+              <room-page id="room" name="room"
+                janus={{janus}}
+                videoroom={{videoroom}}
+                roomcandidate={{roomcandidate}}
+                room={{room}}
+                username={{username}}
+                password={{password}}></room-page>
+              <!-- <file-page id="file" name="file"
+                janus={{janus}}
+                videoroom={{videoroom}}
+                room={{room}}
+                username={{username}}
+                password={{password}}></file-page> -->
+            </iron-pages>
+          </div>
+        </div>
+
+        <!-- <div class="layout horizontal wrap container">
           <file-manager class="layout flex horizontal"
           file="{{file}}"
           room="{{room}}"
           hidden$="[[file]]"></file-manager>
           <code-editor id="codeEditor" room="{{room}}" datachannel="{{datachannel}}" file="{{file}}" hidden$="[[!file]]"></code-editor>
-        </div>
+        </div> -->
       </app-header-layout>
       <!-- DRAWER WORKGROUP -->
-      <app-drawer id="devDrawer" swipe-open slot="drawer">
-        <work-group id="workgroup" room="{{room}}" datachannel="{{datachannel}}"></work-group>
-      </app-drawer>
-      <!-- DRAWER MENU -->
-      <!-- <app-drawer id="menuDrawer" align="right" swipe-open>
-        <app-toolbar>Menu</app-toolbar>
-        <iron-selector attr-for-selected="name" class="nav-menu style-scope blog-app drawer-list" role="navigation">
-          <a name="view1" >View One</a>
-          <a name="view2" >View Two</a>
-          <a name="view3" >View Three</a>
-        </iron-selector>
-      </app-drawer> -->
+      <template is="dom-if" if="{{room}}" restamp>
+        <app-drawer id="devDrawer" swipe-open slot="drawer">
+          <work-group id="workgroup"
+            janus={{janus}}
+            videoroom={{videoroom}}
+            room="{{room}}"
+            username={{username}}
+            password={{password}}
+            developers=[[developers]]
+            ></work-group>
+        </app-drawer>
+      </template>
+
+      <!-- MESSAGES -->
+      <paper-toast id="infoToast" duration="5000" text="[[infoMessage]]" on-tap="closeInfoToast"></paper-toast>
+      <paper-toast id="errorToast" duration="10000" text="[[errorMessage]]" on-tap="closeErrorToast" class="danger"></paper-toast>
+
     </app-drawer-layout>
   </template>
 
@@ -126,31 +197,464 @@
     Polymer({
       is:'my-liquid-app',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
-        room: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        datachannel: {
-          type: Object,
-          value: {
-            data:null,
-            ondata:null,
-          },
-          notify: true,
-        },
-        file: {
+
+        page: {
           type: String,
-          value: null,
+          reflectToAttribute: true,
+          observer: '_pageChanged',
+        },
+
+        routeData: Object,
+
+        subroute: String,
+        // This shouldn't be neccessary, but the Analyzer isn't picking up
+        // Polymer.Element#rootPath
+
+        rootPath: String,
+
+        roomcandidate: {
+          type: String,
+          value: "",
           notify: true,
-        }
+        },
+
       },
-      // toggleMenuDrawer: function(){
-      //   var self=this;
-      //   self.$.menuDrawer.toggle();
+
+      observers: [
+        '_routePageChanged(routeData.page)',
+      ],
+
+      _routePageChanged: function(page) {
+        // If no page was found in the route data, page will be an empty string.
+        this.page = (page=="home" || page=="room" || page=="file") ? page : 'home';
+
+        // Close a non-persistent drawer when the page & route are changed.
+        // if (!this.$.drawer.persistent) {
+        //   this.$.drawer.close();
+        // }
+      },
+
+      _pageChanged: function(page) {
+        // Load page import on demand. Show 404 page if fails
+        if (page == "home"){
+          this.room = null;
+        }
+        var resolvedPageUrl = this.resolveUrl(page + '-page.html');
+        Polymer.importHref(
+            resolvedPageUrl,
+            null,
+            this._showPage404.bind(this),
+            true);
+      },
+
+      _showPage404: function() {
+        this.page = 'home';
+      },
+
+      ready: function(){
+        var self = this;
+        self.$.infoToast.horizontalAlign = "right";
+        self.$.errorToast.horizontalAlign = "right";
+        //
+        Janus.init({
+          debug: ['log'],
+          callback: function(){
+            self.log("Janus initialization completed");
+            // self.createSession();
+          }
+        });
+      },
+
+      // createSession: function(){
+      //   var self = this;
+      //   if (!self.janus){
+      //     self.janus = new Janus({
+      //       server: servers,
+      //       iceServers: ICEServers,
+      //       //token: tkn,
+      //       success: function(){
+      //         Janus.log("Established connection to the server: " + self.janus.getServer() + " (connected=" + self.janus.isConnected() + ")");
+      //         Janus.log("Session was successfully created! ID: " + self.janus.getSessionId());
+      //         //
+      //         self.attachPlugin();
+      //       },
+      //       error: function(cause) {
+      //         Janus.log("Session was not created! because: " + cause);
+      //         self.janus = null;
+      //         setTimeout(function(){
+      //           self.createSession();
+      //         },1000);
+      //       },
+      //       destroyed: function() {
+      //         Janus.log("Session was destroyed and can't be used any more!");
+      //         self.janus = null;
+      //         setTimeout(function(){
+      //           self.createSession();
+      //         },1000);
+      //       }
+      //     });
+      //   }else{
+      //     self.log('session already exist; session id:', janus.getSessionId());
+      //   }
       // },
+
+      // attachPlugin: function(){
+      //   var self = this;
+      //   self.janus && self.janus.attach({
+      //     plugin: "janus.plugin.videoroom",
+      //     success: function(handle){
+      //       self.videoroom = handle;
+      //       self.log("videoroom plugin:", self.videoroom.getPlugin(), 'id:', self.videoroom.getId());
+      //     },
+      //     error: function(cause) {
+      //       self.log("videoroom Couldn't attach to the plugin because: "+cause);
+      //     },
+      //     iceState: function(icestate){
+      //       self.log('videoroom iceState', icestate);
+      //     },
+      //     mediaState: function(type, on){
+      //       self.log('videoroom mediaState', type, on);
+      //     },
+      //     slowLink: function(uplink){
+      //       self.log('videoroom slowLink', uplink);
+      //     },
+      //     onmessage: function(msg, jsep){
+      //       self.log("videoroom onmessage", msg, 'jsep:', jsep);
+      //       if (msg.error_code===436){
+      //         self.log("videoroom username " + self.username + " already exists");
+      //         self.show_error("videoroom username " + self.username + " already exists");
+      //         self.reset();
+      //         return;
+      //       }
+      //       //
+      //       if(jsep){
+      //         self.janusRoom.handleRemoteJsep({
+      //           jsep: jsep
+      //         });
+      //       }
+      //
+      //       var event = msg.videoroom;
+      //       if(!event){
+      //         return;
+      //       }
+      //       if(event === "joined"){
+      //         self.log('videoroom joined');
+      //         self.videoroom.joined = true;
+      //         self.room = msg.room;
+      //         //
+      //         if(msg.publishers){
+      //           self.log("videoroom Got a list of available publishers:", msg.publishers);
+      //           msg.publishers.forEach(function(p){
+      //             // add remote publisher
+      //             self.addDeveloper(p.id, p.display, p.talking);
+      //           });
+      //         }
+      //       }
+      //       else if(event === "destroyed") {
+      //         self.log("videoroom room destroyed");
+      //         self.reset();
+      //         return;
+      //       }
+      //       else if(event === "event"){
+      //         if(msg.publishers){
+      //           self.log("videoroom publishers", msg.publishers);
+      //           msg.publishers.forEach(function(p){
+      //             // add remote publisher
+      //             self.addDeveloper(p.id, p.display, p.talking);
+      //           });
+      //         }
+      //         if(msg.reason === 'kicked'){
+      //           self.log('videoroom kicked');
+      //           self.reset();
+      //           return;
+      //         }
+      //         if(msg.leaving){
+      //           self.log("videoroom leaving", msg.leaving);
+      //           // remove remote publisher
+      //           self.removeDeveloper(msg.leaving);
+      //         }
+      //         if(msg.unpublished){
+      //           self.log("videoroom unpublished", msg.unpublished);
+      //           // self.removeRemotePublisher(msg.unpublished);
+      //           self.removeDeveloper(msg.unpublish);
+      //         }
+      //         if(msg.display){
+      //           self.log("videoroom Publisher display:", msg.id, msg.display);
+      //           var index = self.findDeveloperIndexById(msg.id);
+      //           if(index !== -1){
+      //             self.set('developers.'+index+'.display', msg.display);
+      //           }
+      //         }
+      //       }
+      //       else if(event === "talking"){
+      //         // self.log("talking:", msg.id);
+      //         var index = self.findDeveloperIndexById(msg.id);
+      //         if(index !== -1){
+      //           self.set('developers.'+index+'.talking', true);
+      //         }
+      //       }
+      //       else if(event === "stopped-talking"){
+      //         //self.log("stopped talking:", msg.id);
+      //         var index = self.findDeveloperIndexById(msg.id);
+      //         if(index !== -1){
+      //           self.set('developers.'+index+'.talking', false);
+      //         }
+      //       }
+      //     },
+      //     oncleanup: function() {
+      //       self.log('videoroom join oncleanup');
+      //     },
+      //     detached: function() {
+      //       self.log('videoroom join detached');
+      //       self.videoroom = null;
+      //     }
+      //   });
+      // },
+      //
+      // findDeveloperIndexById: function(id){
+      //   var self = this;
+      //   return self.developers.findIndex(function(p){
+      //     return p.id == id;
+      //   });
+      // },
+      //
+      // removeDeveloper: function(id){
+      //   var self = this;
+      //   self.log('removeDeveloper', id);
+      //
+      //   var index = self.findDeveloperIndexById(id);
+      //   if(index === -1){
+      //     return;
+      //   }
+      //
+      //   var developer = self.developers[index];
+      //   if(developer.handle){
+      //     developer.handle.detach();
+      //   }
+      //
+      //   //
+      //   self.splice('developers', index, 1);
+      // },
+      //
+      // addDeveloper: function(id, display, talking){
+      //   var self = this;
+      //   self.log('addDeveloper', id, display, talking);
+      //
+      //   // var participantId = self.username.hashCode();
+      //
+      //   // don't add self
+      //   // if((id >> 8) === participantId){
+      //   //   return;
+      //   // }
+      //
+      //   // don't add the same publisher
+      //   // var index = self.findDeveloperIndexById(id);
+      //   // if(index !== -1){
+      //   //   return;
+      //   // }
+      //
+      //   // add
+      //   var developer = {
+      //     id: id,
+      //     display: display,
+      //     publisher: true,
+      //     stream: null,
+      //     videoStream: null,
+      //     audioStream: null,
+      //     //
+      //     handle: null,
+      //     video: true,
+      //     audio: true,
+      //     talking: talking,
+      //   };
+      //
+      //   //
+      //   self.push('developers', developer);
+      //
+      //   // auto open remote publishers
+      //   // if(!isMobile.any){
+      //     setTimeout(function(){
+      //       self.openRemotePublisher(developer);
+      //     }, 500);
+      //   // }
+      // },
+      //
+      // openRemotePublisher: function(remotePublisher){
+      //   var self = this;
+      //   if(!remotePublisher){
+      //     return;
+      //   }
+      //   if(remotePublisher.handle){
+      //     console.error('remotePublisher handle already attached', id);
+      //     return;
+      //   }
+      //   self.log('openRemotePublisher', remotePublisher);
+      //   //
+      //   if(!self.janus){
+      //     return;
+      //   }
+      //   //
+      //   self.janus.attach({
+      //     plugin: "janus.plugin.videoroom",
+      //     // opaqueId: "WebRTC_Videoconference_"+ Janus.randomString(12),
+      //     success: function(pluginHandle){
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('developer not found', remotePublisher);
+      //         return;
+      //       }
+      //
+      //       self.set('developers.' + index + '.handle', pluginHandle);
+      //       //
+      //       pluginHandle.send({
+      //         message: {
+      //           request: "join",
+      //           room: self.room,
+      //           ptype: "listener",
+      //           feed: remotePublisher.id,
+      //           video: remotePublisher.video,
+      //           audio: remotePublisher.audio,
+      //           pin: self.pin,
+      //         },
+      //         success: function(result){
+      //           self.log('openRemotePublisher', result);
+      //         },
+      //         error: function(err){
+      //           console.error("openRemotePublisher error:", err);
+      //         }
+      //       });
+      //     },
+      //     error: function(cause){
+      //       self.log('openRemotePublisher', "Couldn't attach to the plugin:", cause);
+      //     },
+      //     iceState: function(icestate){
+      //       self.log('openRemotePublisher icestate', icestate);
+      //     },
+      //     mediaState: function(type, on){
+      //       self.log('openRemotePublisher mediaState', type, on);
+      //     },
+      //     slowLink: function(uplink){
+      //       self.log('openRemotePublisher slowLink', uplink);
+      //     },
+      //     onmessage: function(msg, jsep) {
+      //       self.log('openRemotePublisher onmessage', msg, "jsep:", jsep);
+      //
+      //       var event = msg.videoroom;
+      //       if(event){
+      //         if(event === "attached") {
+      //           self.log('openRemotePublisher attached', remotePublisher);
+      //         }
+      //         if(msg.error){
+      //           console.error('openRemotePublisher error', msg.error);
+      //           self.show_error(msg.error);
+      //         }
+      //       }
+      //
+      //       if(jsep){
+      //         self.log('openRemotePublisher jsep', jsep);
+      //         // Answer and attach
+      //         remotePublisher.handle.createAnswer({
+      //           jsep: jsep,
+      //           // Add data:true here if you want to subscribe to datachannels as well
+      //           // (obviously only works if the publisher offered them in the first place)
+      //           media: {
+      //             audioSend: false,
+      //             videoSend: false,
+      //           },	// We want recvonly audio/video
+      //           success: function(jsep) {
+      //             self.log('openRemotePublisher', "Got SDP!", jsep);
+      //             remotePublisher.handle.send({
+      //               message: {
+      //                 request: "start",
+      //                 room: self.room,
+      //               },
+      //               jsep: jsep,
+      //             });
+      //           },
+      //           error: function(error) {
+      //             console.error('openRemotePublisher', "WebRTC error:", error);
+      //           }
+      //         });
+      //       }
+      //     },
+      //     webrtcState: function(state, err){
+      //       self.log('openRemotePublisher webrtcState', state, err);
+      //     },
+      //     onremotestream: function(stream){
+      //       self.log('openRemotePublisher onremotestream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('remotePublisher not found', remotePublisher);
+      //         return;
+      //       }
+      //
+      //       self.set('developers.' + index + '.stream', stream);
+      //
+      //       var videoTracks = stream.getVideoTracks();
+      //       if(videoTracks.length > 0){
+      //         var videoStream = new MediaStream;
+      //         videoStream.addTrack(videoTracks[0]);
+      //         self.set('developers.' + index + '.videoStream', videoStream);
+      //       }
+      //
+      //       var audioTracks = stream.getAudioTracks();
+      //       if(audioTracks.length > 0){
+      //         var audioStream = new MediaStream;
+      //         audioStream.addTrack(audioTracks[0]);
+      //         self.set('developers.' + index + '.audioStream', audioStream);
+      //       }
+      //
+      //     },
+      //     detached: function() {
+      //       self.log('openRemotePublisher detached');
+      //     },
+      //     oncleanup: function() {
+      //       self.log('openRemotePublisher oncleanup');
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('remotePublisher not found', remotePublisher);
+      //         return;
+      //       }
+      //       self.set('developers.' + index + '.handle', null);
+      //     }
+      //   });
+      // },
+      //
+      // leave: function(){
+      //   var self = this;
+      //   if (self.videoroom){
+      //     self.videoroom.detach();
+      //     self.videoroom = null;
+      //   }
+      // },
+      //
+      // stop: function(){
+      //   var self = this;
+      //   if (self.janus){
+      //     self.leave();
+      //     self.janus.destroy();
+      //     self.janus = null;
+      //   }
+      // },
+      //
+      // reset: function(){
+      //   var self = this;
+      //   self.room = null;
+      //   self.leave();
+      //   self.attachPlugin();
+      // },
+
+      closeInfoToast: function(){
+        this.$.infoToast.close();
+      },
+
+      closeErrorToast: function(){
+        this.$.errorToast.close();
+      },
+
     });
   </script>
 </dom-module>

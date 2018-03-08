@@ -4,13 +4,14 @@ const formidable = require('formidable');
 const express = require('express');
 const bodyParser = require('body-parser');
 const prefix = config.PROJECTFOLDER;
+// var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
 var app = express();
 var path = require('path');
 var randomstring = require("randomstring");
 
 //run janus
-const spawn = require('child_process').spawn;
-var janus = spawn('janus');
+// const spawn = require('child_process').spawn;
+// var janus = spawn('janus');
 // janus.stdout.on('data', (data) => {
 //   console.log(`${data}`);
 // });
@@ -28,6 +29,16 @@ if (config.PROTOCOL == 'https'){
   server = http.createServer(app).listen(port);
 }
 
+function checkRoom(room){
+  var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
+  return rlist[room];
+}
+
+function auth(room,password){
+  var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
+  return rlist[room] && rlist[room].password == password;
+}
+
 //real-time comunication
 require('./socket')(server);
 console.log('server listen on port ' + port);
@@ -38,37 +49,53 @@ app.use(bodyParser.urlencoded({
 }));
 
 //get file list
-app.get('/list/:room', function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
-  res.json({
-    list: Object.entries(flist).filter(function(element){
-      return element[1].room == req.params.room;
-    }).map(function(element){
-      var el = element[1];
-      el['fid'] = element[0];
-      return el;
-    })
-  });
+app.post('/list/:room', function(req,res){
+  if (checkRoom(req.params.room)){
+    if (auth(req.params.room,req.body.password)){
+      var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+      res.json({
+        list: Object.entries(flist).filter(function(element){
+          return element[1].room == req.params.room;
+        }).map(function(element){
+          var el = element[1];
+          el['fid'] = element[0];
+          return el;
+        })
+      });
+    }else{
+      res.status(401);
+      res.end("Unauthorized");
+    }
+  }else{
+    res.status(404);
+    res.end("Room not found");
+  }
 });
 
 //download a file
-app.get('/download/:fid', function(req,res){
+app.post('/download/:fid', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fid = req.params.fid;
   if (flist[fid]){
-    var fpath = path.join(prefix,flist[fid].room,flist[fid].name);
-    if (!fs.existsSync(fpath)){
-      fpath = path.join(prefix,'empty.file');
-    }
-    res.download(fpath,flist[fid].name,function(err){
-      if (err){
-        res.status(500);
-        res.end("download error");
-      }else {
-        res.status(200);
-        res.end("download ok");
+    console.log("room:",flist[fid].room,"password:",req.body.password);
+    if (auth(flist[fid].room,req.body.password)){
+      var fpath = path.join(prefix,flist[fid].room,flist[fid].name);
+      if (!fs.existsSync(fpath)){
+        fpath = path.join(prefix,'empty.file');
       }
-    });
+      res.download(fpath,flist[fid].name,function(err){
+        if (err){
+          res.status(500);
+          res.end("Error");
+        }else {
+          res.status(200);
+          res.end("Ok");
+        }
+      });
+    }else{
+      res.status(401);
+      res.end("Unauthorized");
+    }
   }else{
     res.status(404);
     res.end("File not found");
@@ -165,16 +192,39 @@ app.post('/upload',function(req, res){
 app.post('/delete', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   if (flist[req.body.fid]){
-    var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
-    if (fs.existsSync(file)){
-      fs.unlinkSync(file);
-      if(fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).length == 0){
-        fs.rmdirSync(path.join(prefix,flist[req.body.fid].room));
+    if (auth(flist[req.body.fid].room,req.body.password)){
+      var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
+      if (fs.existsSync(file)){
+        fs.unlinkSync(file);
+        if(fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).length == 0){
+          fs.rmdirSync(path.join(prefix,flist[req.body.fid].room));
+        }
       }
+      var room = flist[req.body.fid].room;
+      delete flist[req.body.fid];
+      fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+      var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
+      var finRoom = Object.entries(flist).filter(function(element){
+        return element[1] && element[1].room == room;
+      }).length;
+      if (finRoom == 0){
+        delete rlist[room];
+      }
+      fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
+      res.status(200);
+      res.end("Ok");
+    }else{
+      res.status(401);
+      res.end("Unauthorized");
     }
-    delete flist[req.body.fid];
-    fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+  }else{
+    res.status(404);
+    res.end("File not Found");
   }
 });
 
-app.use('/liquidproject', express.static(__dirname + '/liquidproject'));
+app.use(express.static('liquidproject', { fallthrough: true }));
+
+app.use(function(req, res){
+    res.sendFile(__dirname + '/liquidproject/index.html');
+});

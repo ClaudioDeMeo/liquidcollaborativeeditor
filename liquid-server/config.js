@@ -6,6 +6,9 @@ module.exports = {
   //listo of project files
   FILELIST : __dirname + '/filelist.json',
 
+  //listo of project files
+  ROOMLIST : __dirname + '/roomlist.json',
+
   //file buffer length
   HISTORY_LENGTH : 1000,
 
@@ -17,7 +20,7 @@ module.exports = {
   },
 
   //Protocol
-  PROTOCOL : 'http',
+  PROTOCOL : 'https',
 
   //HTTP/HTTPS local Server
   HTTP_PORT : 8040,

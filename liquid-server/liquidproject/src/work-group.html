@@ -14,8 +14,7 @@
 <link rel="import" href="../bower_components/paper-button/paper-button.html">
 <link rel="import" href="../bower_components/paper-input/paper-input.html">
 
-<!-- <link rel="import" href="shared-styles.html"> -->
-<!-- <link rel="import" href="base/utils-behavior.html"> -->
+<link rel="import" href="base/utils-behavior.html">
 <link rel="import" href="room/room-media.html">
 <link rel="import" href="local-video-player.html">
 <link rel="import" href="remote-video-player.html">
@@ -97,7 +96,7 @@
           </div>
         </div>
         <!-- USER BUTTON -->
-        <div class="layout vertical containerButton" hidden$="[[janusRoom]]">
+        <div class="layout vertical containerButton" hidden="[[janusRoom]]">
           <!-- SETTING -->
           <iron-a11y-keys id="a11y" target="[[nameInputElement]]" keys="enter" on-keys-pressed="start"></iron-a11y-keys>
           <paper-input
@@ -125,12 +124,12 @@
             required>
           </paper-input>
           <!-- JOIN BUTTON -->
-          <paper-button on-tap="start" raised disabled$="[[!participantName]]">
+          <paper-button on-tap="start" raised disabled="[[!participantName]]">
             <iron-icon icon="send"></iron-icon>Join room
           </paper-button>
         </div>
         <!-- EXIT-BUTTON -->
-        <div class="layout vertical containerButton" hidden$="[[!janusRoom]]">
+        <div class="layout vertical containerButton" hidden="[[!janusRoom]]">
           <paper-button on-tap="stop" raised>
             <iron-icon icon="exit-to-app"></iron-icon>Exit room
           </paper-button>
@@ -167,722 +166,721 @@
     Polymer({
       is:'work-group',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
-        developers: {
-          type: Array,
-          value: function(){ return [] },
-          notify: true,
-        },
+        // developers: {
+        //   type: Array,
+        //   value: function(){ return [] },
+        //   notify: true,
+        // },
         developer: {
           type: Object,
           value: null,
           notify: true,
           observer: '_isdel',
         },
-        room: {
-          type: Object,
-          value: null,
-          notify: true,
-          observer: '_roomChanged',
-        },
-        participantName: {
-          type: String,
-          value: '',
-          notify: true,
-        },
-        janus: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        pin: {
-          type: String,
-          value: '',
-          notify: true,
-        },
-        janusRoom: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        nameInputElement: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        pinInputElement: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
-        datachannel: {
-          type: Object,
-          value: null,
-          notify: true,
-        },
+        // room: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        //   observer: '_roomChanged',
+        // },
+        // participantName: {
+        //   type: String,
+        //   value: '',
+        //   notify: true,
+        // },
+        // janus: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        // },
+        // pin: {
+        //   type: String,
+        //   value: '',
+        //   notify: true,
+        // },
+        // janusRoom: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        // },
+        // nameInputElement: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        // },
+        // pinInputElement: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        // },
+        // datachannel: {
+        //   type: Object,
+        //   value: null,
+        //   notify: true,
+        // },
       },
 
-      log: console.log,
-
-      ready: function(){
-        var self = this;
-        self.log('ready');
-        self.nameInputElement = self.$.nameInput;
-        self.pinInputElement = self.$.pinInput;
-      },
-
-      start: function(){
-        var self = this;
-        self.janus=startSession(function(){//onSuccess
-          self.join();
-        },
-        function(){//onError
-          self.janus = self.janusRoom = null;
-        });
-      },
-
-      stop: function(){
-        var self = this;
-        self.log('stop');
-        self.leave();
-        if (self.developer){
-          self.unpublish(self.developer);
-        }
-        self.janus = null;
-      },
-
-      join:function(){
-        var self = this;
-        self.log('join', self.room._id);
-        //
-        self.janus.attach({
-          plugin: "janus.plugin.videoroom",
-          // opaqueId: "Workgroup"+ Janus.randomString(12),
-          success: function(pluginHandle){
-            self.janusRoom = pluginHandle;
-            self.log("join plugin:", self.janusRoom.getPlugin(), 'id:', self.janusRoom.getId());
-            //
-            var participantId = (self.participantName.hashCode() << 8) + 0xFF;
-            // var participantId = (self.participantName.hashCode() << 8);
-            self.janusRoom.createOffer({
-              media: {
-                video: false,
-                audio: false,
-                data: true
-              },
-              success: function(jsep){
-                self.janusRoom.send({
-                  message: {
-                    request: "joinandconfigure",
-                    room: self.room._id,
-                    ptype: 'publisher',
-                    id:participantId,
-                    display: self.participantName,
-                    pin: self.pin,
-                    data: true,
-                    video: false,
-                    audio: false,
-                    videoRecv: false,
-                    audioRecv: false,
-                  },
-                  jsep: jsep,
-                  success: function(result){
-                    self.log('join success', result);
-                  },
-                  error: function(err){
-                    console.error("join error:", err);
-                  }
-                });
-              },
-              error: function(error) {
-                console.error("join WebRTC error:", error);
-              }
-            });
-          },
-          error: function(cause) {
-            self.log("join Couldn't attach to the plugin because: "+cause);
-          },
-          iceState: function(icestate){
-            self.log('join iceState', icestate);
-          },
-          mediaState: function(type, on){
-            self.log('join mediaState', type, on);
-          },
-          slowLink: function(uplink){
-            self.log('join slowLink', uplink);
-          },
-          onmessage: function(msg, jsep){
-            self.log("join onmessage", msg, 'jsep:', jsep);
-
-            if (msg.error_code===436){
-              self.stop();
-              self.log("username " + self.participantName + " already exists");
-            }
-            //
-            if(jsep){
-              self.janusRoom.handleRemoteJsep({
-                jsep: jsep
-              });
-            }
-
-            //
-            var event = msg.videoroom;
-            if(!event){
-              return;
-            }
-
-            if(msg.error){
-              console.error(msg.error);
-              self.showError(msg.error);
-              self.stop();
-              return;
-            }
-
-            if(event === "joined"){
-              self.log('join joined');
-              self.janusRoom.joined = true;
-              //
-              if(msg.publishers){
-                self.log("join Got a list of available publishers:", msg.publishers);
-                msg.publishers.forEach(function(p){
-                  // self.addRemotePublisher(p.id, p.display, true, p.talking);//creare
-                  self.addDeveloper(p.id, p.display, true, p.talking);
-                });
-              }
-            }
-            else if(event === "destroyed") {
-              self.log("join room destroyed");
-              self.stop();
-              return;
-            }
-            else if(event === "event"){
-              if(msg.publishers){
-                self.log("join publishers", msg.publishers);
-                msg.publishers.forEach(function(p){
-                  // self.addRemotePublisher(p.id, p.display, true, p.talking);
-                  self.addDeveloper(p.id, p.display, true, p.talking);
-                });
-              }
-              if(msg.reason === 'kicked'){
-                self.log('join kicked');
-                //self.showMessage('Kicked');
-                self.stop();
-                return;
-              }
-              if(msg.leaving){
-                self.log("join leaving", msg.leaving);
-                // remove remote publisher
-                // self.removeRemotePublisher(msg.leaving);//creare
-                self.removeDeveloper(msg.leaving);
-              }
-              if(msg.unpublished){
-                self.log("join unpublished", msg.unpublished);
-                // self.removeRemotePublisher(msg.unpublished);
-                self.removeDeveloper(msg.unpublish);
-              }
-              if(msg.display){
-                self.log("join Publisher display:", msg.id, msg.display);
-                // var index = self.findRemotePublisherIndexById(msg.id);//creare
-                var index = self.findDeveloperIndexById(msg.id);
-                if(index !== -1){
-                  self.set('remotePublishers.'+index+'.display', msg.display);
-                }
-              }
-            }
-            else if(event === "talking"){
-              //self.log("talking:", msg.id);
-              // var index = self.findRemotePublisherIndexById(msg.id);
-              var index = self.findDeveloperIndexById(msg.id);
-              if(index !== -1){
-                self.set('remotePublishers.'+index+'.talking', true);
-              }
-            }
-            else if(event === "stopped-talking"){
-              //self.log("stopped talking:", msg.id);
-              // var index = self.findRemotePublisherIndexById(msg.id);
-              var index = self.findDeveloperIndexById(msg.id);
-              if(index !== -1){
-                self.set('remotePublishers.'+index+'.talking', false);
-              }
-            }
-          },
-          ondataopen: function(){
-            self.log('join ondataopen');
-            self.datachannel.data=self.janusRoom.data;
-          },
-          oncleanup: function() {
-            self.log('join oncleanup');
-          },
-          detached: function() {
-            self.log('join detached');
-            self.janusRoom = null;
-          }
-        });
-      },
-
-      unpublish: function(publisher){
-        var self = this;
-        self.log('unpublish', publisher);
-        //
-        if(!publisher){
-          return;
-        }
-        //
-        if(publisher.handle){
-          if(publisher.joined){
-            publisher.handle.send({
-              message: {
-                request: "unpublish",
-              }
-            });
-          }
-          publisher.handle.hangup(true);
-          publisher.handle.detach();
-          self.set('developer.handle', null);
-        }
-        //
-        self.set('developer.stream', null);
-        self.developer=null;
-        // self.splice('localPublishers', index, 1);
-      },
-
-      publish: function(publisher){
-        var self = this;
-        self.log('publish', publisher);
-        //
-        self.janus.attach({
-          plugin: "janus.plugin.videoroom",
-          //opaqueId: "WebRTC_Videoconference_"+ Janus.randomString(12),
-          success: function(pluginHandle){
-            publisher.handle = pluginHandle;
-            self.log("publish plugin:", pluginHandle.getPlugin(), 'id:', pluginHandle.getId());
-
-            // publish to room
-            var media = {
-              video: publisher.video,
-              audio: publisher.audio,
-              videoSend: publisher.videoSend,
-              audioSend: publisher.audioSend,
-              // data:true,
-            }
-
-            var participantId = (self.participantName.hashCode() << 8) + (publisher.display[0] << 4) + publisher.display[1];
-            self.log('publish participantId:', participantId);
-
-            pluginHandle.createOffer({
-              media: media,
-              success: function(jsep){
-                pluginHandle.send({
-                  message: {
-                    request: "joinandconfigure",
-                    room: self.room._id,
-                    ptype: 'publisher',
-                    id: participantId,
-                    display: self.participantName,
-                    pin: self.pin,
-                    // data: true,
-                    video: publisher.videoSend,
-                    audio: publisher.audioSend,
-                    bitrate: publisher.bitrate,
-                    videoRecv: false,
-                    audioRecv: false,
-                  },
-                  jsep: jsep
-                });
-                self.log("publish request sent");
-              },
-              error: function(error){
-                self.log("publish error:", error);
-              }
-            });
-          },
-          error: function(err){
-            self.log("publish Couldn't attach to the plugin because: ", err);
-          },
-          iceState: function(icestate){
-            self.log('publish iceState', icestate);
-          },
-          mediaState: function(type, on){
-            self.log('publish mediaState', type, on);
-          },
-          slowLink: function(uplink){
-            self.log('publish slowLink', uplink);
-          },
-          onmessage: function(msg, jsep){
-            self.log("publish onmessage", msg, 'jsep:', jsep);
-
-            //
-            if(jsep){
-              publisher.handle.handleRemoteJsep({
-                jsep: jsep
-              });
-            }
-
-            //
-            var event = msg.videoroom;
-            if(!event){
-              return;
-            }
-
-            if(msg.error){
-              console.error('publish error:', msg.error);
-              // self.showError(msg.error);
-              self.unpublish(publisher);
-              return;
-            }
-
-            if(event === "joined"){
-              self.log('publish joined', msg);
-              self.set('developer.joined', true);
-            }
-            else if(event === "destroyed") {
-              self.log("publish room destroyed");
-              self.unpublish(publisher);
-              return;
-            }
-            else if(event === "event"){
-              if(msg.reason === 'kicked'){
-                self.log('publish kicked');
-                // self.showMessage('Kicked');
-                self.stop();
-                return;
-              }
-              if(msg.leaving){
-                self.log("publish leaving", msg.leaving);
-                if(msg.leaving === 'ok'){
-                  self.unpublish(publisher);
-                }
-              }
-              if(msg.unpublished){
-                self.log("publish unpublished", msg.unpublished);
-                if(msg.unpublished === 'ok'){
-                  self.unpublish(publisher);
-                }
-              }
-            }
-          },
-          webrtcState: function(state, reason) {
-            self.log('publish webrtcState', state, reason);
-            if(!state){
-              self.unpublish(publisher);
-            }
-          },
-          onlocalstream: function(stream) {
-            self.log('publish onlocalstream', stream, stream.getVideoTracks(), stream.getAudioTracks());
-            self.set('developer.stream', stream);
-          },
-          oncleanup: function() {
-            self.log('join oncleanup');
-            //self.log("The plugin handle is still valid so we can create a new one");
-            //self.stop();
-          },
-          detached: function() {
-            self.log('publish detached');
-            self.set('developer.handle', null);
-            //self.log("The plugin handle is not valid anymore");
-          }
-        });
-      },
-
-      addDeveloper: function(id, display, publisher, talking){
-        var self = this;
-        self.log('addDeveloper', id, display, publisher, talking);
-
-        var participantId = self.participantName.hashCode();
-
-        // don't add self
-        if((id >> 8) === participantId){
-          return;
-        }
-
-        // don't add the same publisher
-        var index = self.findDeveloperIndexById(id);
-        if(index !== -1){
-          return;
-        }
-
-        // add
-        var developer = {
-          id: id,
-          display: display,
-          publisher: publisher,
-          stream: null,
-          videoStream: null,
-          audioStream: null,
-          //
-          handle: null,
-          video: true,
-          audio: true,
-          data: (id & 0xFF) === 0xFF,
-          talking: talking,
-        };
-
-        //
-        self.push('developers', developer);
-        var index = self.developers.length-1;
-
-        // auto open remote publishers
-        if(publisher /*&& !isMobile.any*/){
-          setTimeout(function(){
-            self.openRemotePublisher(developer);
-          }, 500);
-        }
-
-      },
-
-      openRemotePublisher: function(remotePublisher){
-        var self = this;
-        if(!remotePublisher){
-          return;
-        }
-        if(remotePublisher.handle){
-          console.error('remotePublisher handle already attached', id);
-          return;
-        }
-        self.log('openRemotePublisher', remotePublisher);
-        //
-        if(!self.janus){
-          return;
-        }
-        //
-        self.janus.attach({
-          plugin: "janus.plugin.videoroom",
-          // opaqueId: "WebRTC_Videoconference_"+ Janus.randomString(12),
-          success: function(pluginHandle){
-            var index = self.findDeveloperIndexById(remotePublisher.id);
-            if(index === -1){
-              console.error('developer not found', remotePublisher);
-              return;
-            }
-
-            self.set('developers.'+index+'.handle', pluginHandle);
-            //
-            pluginHandle.send({
-              message: {
-                request: "join",
-                room: self.room._id,
-                ptype: "listener",
-                feed: remotePublisher.id,
-                video: remotePublisher.video,
-                audio: remotePublisher.audio,
-                pin: self.pin,
-                //private_id: self.participantName.hashCode(),
-                data: remotePublisher.data,
-                //data: true,
-              },
-              success: function(result){
-                self.log('openRemotePublisher', result);
-              },
-              error: function(err){
-                console.error("openRemotePublisher error:", err);
-              }
-            });
-          },
-          error: function(cause){
-            self.log('openRemotePublisher', "Couldn't attach to the plugin:", cause);
-          },
-          iceState: function(icestate){
-            self.log('openRemotePublisher icestate', icestate);
-          },
-          mediaState: function(type, on){
-            self.log('openRemotePublisher mediaState', type, on);
-          },
-          slowLink: function(uplink){
-            self.log('openRemotePublisher slowLink', uplink);
-          },
-          onmessage: function(msg, jsep) {
-            self.log('openRemotePublisher onmessage', msg, "jsep:", jsep);
-
-            var event = msg.videoroom;
-            if(event){
-              if(event === "attached") {
-                self.log('openRemotePublisher attached', remotePublisher);
-              }
-              if(msg.error){
-                console.error('openRemotePublisher error', msg.error);
-                self.showError(msg.error);
-              }
-            }
-
-            if(jsep){
-              self.log('openRemotePublisher jsep', jsep);
-              // Answer and attach
-              remotePublisher.handle.createAnswer({
-                jsep: jsep,
-                // Add data:true here if you want to subscribe to datachannels as well
-                // (obviously only works if the publisher offered them in the first place)
-                media: {
-                  audioSend: false,
-                  videoSend: false,
-                  data: remotePublisher.data
-                },	// We want recvonly audio/video
-                success: function(jsep) {
-                  self.log('openRemotePublisher', "Got SDP!", jsep);
-                  remotePublisher.handle.send({
-                    message: {
-                      request: "start",
-                      room: self.room._id,
-                    },
-                    jsep: jsep,
-                  });
-                },
-                error: function(error) {
-                  console.error('openRemotePublisher', "WebRTC error:", error);
-                }
-              });
-            }
-          },
-          webrtcState: function(state, err){
-            self.log('openRemotePublisher webrtcState', state, err);
-          },
-          onremotestream: function(stream){
-            self.log('openRemotePublisher onremotestream', stream, stream.getVideoTracks(), stream.getAudioTracks());
-            var index = self.findDeveloperIndexById(remotePublisher.id);
-            if(index === -1){
-              console.error('remotePublisher not found', remotePublisher);
-              return;
-            }
-
-            self.set('developers.'+index+'.stream', stream);
-
-            var videoTracks = stream.getVideoTracks();
-            if(videoTracks.length > 0){
-              var videoStream = new MediaStream;
-              videoStream.addTrack(videoTracks[0]);
-              self.set('developers.'+index+'.videoStream', videoStream);
-            }
-
-            var audioTracks = stream.getAudioTracks();
-            if(audioTracks.length > 0){
-              var audioStream = new MediaStream;
-              audioStream.addTrack(audioTracks[0]);
-              self.set('developers.'+index+'.audioStream', audioStream);
-            }
-
-          },
-          ondataopen: function(){
-            self.log('openRemotePublisher ondataopen');
-          },
-          // ondata: function(data){
-          //   self.log('openRemotePublisher', 'ondata', data);
-          //   self.set('datachannel.ondata',data);
-          // },
-          ondata: self.datachannel.ondata,
-          detached: function() {
-            self.log('openRemotePublisher detached');
-          },
-          oncleanup: function() {
-            self.log('openRemotePublisher oncleanup');
-            var index = self.findDeveloperIndexById(remotePublisher.id);
-            if(index === -1){
-              console.error('remotePublisher not found', remotePublisher);
-              return;
-            }
-            self.set('developers.'+index+'.handle', null);
-          }
-        });
-      },
-
-      removeDeveloper: function(id){
-        var self = this;
-        self.log('removeDeveloper', id);
-
-        var index = self.findDeveloperIndexById(id);
-        if(index === -1){
-          return;
-        }
-
-        var developer = self.developers[index];
-        if(developer.handle){
-          developer.handle.detach();
-        }
-
-        //
-        self.splice('developers', index, 1);
-      },
-
-      findDeveloperIndexById: function(id){
-        var self = this;
-        return self.developers.findIndex(function(p){
-          return p.id == id;
-        });
-      },
-
-      leave: function(){
-        var self = this;
-        self.log('leave');
-        //
-        if(!self.janusRoom){
-          return;
-        }
-        //
-        if(self.janusRoom.joined){
-          self.janusRoom.send({
-            message: {
-              request: "unpublish",
-            }
-          });
-        }
-        self.janusRoom.hangup(true);
-        self.janusRoom.detach();
-        self.janusRoom = null;
-
-        //
-        while(self.developers.length > 0){
-          self.removeDeveloper(self.developers[0].id);
-        }
-      },
-
-      _onAddLocalPublisher: function(){
-        var self = this;
-        self.log('onAddLocalPublisher');
-        //
-        var el = MediaDialog(function(err, result){
-          self.log('MediaDialog', err, result);
-          if(!err){
-            var publisher = result.detail;
-            publisher.handle = null;
-            publisher.stream = null;
-            publisher.joined = false;
-
-            self.developer = publisher;
-            self.publish(self.developer);
-
-            // self.push('developer', publisher);
-            //
-            // self.publishCallback(publisher, self.developer.length-1);
-          }
-        });
-        el.room = self.room;
-      },
-
-      _roomChanged: function(room, old){
-        var self = this;
-        //
-        // if(room){
-        //   //self.log('_roomChanged', room);
-        //   if(!room.running){
-        //     self.stop();
-        //   }
-        // }
-        // else{
-          self.stop();
-        // }
-      },
-
-      filterRemotePublishers: function(publisher){
-        var self=this;
-        var found=false;
-        if (publisher.data){
-          var i=0;
-          while (!found && i<self.developers.length){
-            found=(self.developers[i].display===publisher.display && self.developers[i].id!==publisher.id);
-            i++;
-          }
-        }
-        return !found;
-      },
+      // ready: function(){
+      //   var self = this;
+      //   self.log('ready');
+      //   self.nameInputElement = self.$.nameInput;
+      //   self.pinInputElement = self.$.pinInput;
+      // },
+      //
+      // start: function(){
+      //   var self = this;
+      //   self.janus=startSession(function(){//onSuccess
+      //     self.join();
+      //   },
+      //   function(){//onError
+      //     self.janus = self.janusRoom = null;
+      //   });
+      // },
+      //
+      // stop: function(){
+      //   var self = this;
+      //   self.log('stop');
+      //   self.leave();
+      //   if (self.developer){
+      //     self.unpublish(self.developer);
+      //   }
+      //   self.janus = null;
+      // },
+      //
+      // join:function(){
+      //   var self = this;
+      //   self.log('join', self.room._id);
+      //   //
+      //   self.janus.attach({
+      //     plugin: "janus.plugin.videoroom",
+      //     // opaqueId: "Workgroup"+ Janus.randomString(12),
+      //     success: function(pluginHandle){
+      //       self.janusRoom = pluginHandle;
+      //       self.log("join plugin:", self.janusRoom.getPlugin(), 'id:', self.janusRoom.getId());
+      //       //
+      //       var participantId = (self.participantName.hashCode() << 8) + 0xFF;
+      //       // var participantId = (self.participantName.hashCode() << 8);
+      //       self.janusRoom.createOffer({
+      //         media: {
+      //           video: false,
+      //           audio: false,
+      //           data: true
+      //         },
+      //         success: function(jsep){
+      //           self.janusRoom.send({
+      //             message: {
+      //               request: "joinandconfigure",
+      //               room: self.room._id,
+      //               ptype: 'publisher',
+      //               id:participantId,
+      //               display: self.participantName,
+      //               pin: self.pin,
+      //               data: true,
+      //               video: false,
+      //               audio: false,
+      //               videoRecv: false,
+      //               audioRecv: false,
+      //             },
+      //             jsep: jsep,
+      //             success: function(result){
+      //               self.log('join success', result);
+      //             },
+      //             error: function(err){
+      //               console.error("join error:", err);
+      //             }
+      //           });
+      //         },
+      //         error: function(error) {
+      //           console.error("join WebRTC error:", error);
+      //         }
+      //       });
+      //     },
+      //     error: function(cause) {
+      //       self.log("join Couldn't attach to the plugin because: "+cause);
+      //     },
+      //     iceState: function(icestate){
+      //       self.log('join iceState', icestate);
+      //     },
+      //     mediaState: function(type, on){
+      //       self.log('join mediaState', type, on);
+      //     },
+      //     slowLink: function(uplink){
+      //       self.log('join slowLink', uplink);
+      //     },
+      //     onmessage: function(msg, jsep){
+      //       self.log("join onmessage", msg, 'jsep:', jsep);
+      //
+      //       if (msg.error_code===436){
+      //         self.stop();
+      //         self.log("username " + self.participantName + " already exists");
+      //       }
+      //       //
+      //       if(jsep){
+      //         self.janusRoom.handleRemoteJsep({
+      //           jsep: jsep
+      //         });
+      //       }
+      //
+      //       //
+      //       var event = msg.videoroom;
+      //       if(!event){
+      //         return;
+      //       }
+      //
+      //       if(msg.error){
+      //         console.error(msg.error);
+      //         self.showError(msg.error);
+      //         self.stop();
+      //         return;
+      //       }
+      //
+      //       if(event === "joined"){
+      //         self.log('join joined');
+      //         self.janusRoom.joined = true;
+      //         //
+      //         if(msg.publishers){
+      //           self.log("join Got a list of available publishers:", msg.publishers);
+      //           msg.publishers.forEach(function(p){
+      //             // self.addRemotePublisher(p.id, p.display, true, p.talking);//creare
+      //             self.addDeveloper(p.id, p.display, true, p.talking);
+      //           });
+      //         }
+      //       }
+      //       else if(event === "destroyed") {
+      //         self.log("join room destroyed");
+      //         self.stop();
+      //         return;
+      //       }
+      //       else if(event === "event"){
+      //         if(msg.publishers){
+      //           self.log("join publishers", msg.publishers);
+      //           msg.publishers.forEach(function(p){
+      //             // self.addRemotePublisher(p.id, p.display, true, p.talking);
+      //             self.addDeveloper(p.id, p.display, true, p.talking);
+      //           });
+      //         }
+      //         if(msg.reason === 'kicked'){
+      //           self.log('join kicked');
+      //           //self.showMessage('Kicked');
+      //           self.stop();
+      //           return;
+      //         }
+      //         if(msg.leaving){
+      //           self.log("join leaving", msg.leaving);
+      //           // remove remote publisher
+      //           // self.removeRemotePublisher(msg.leaving);//creare
+      //           self.removeDeveloper(msg.leaving);
+      //         }
+      //         if(msg.unpublished){
+      //           self.log("join unpublished", msg.unpublished);
+      //           // self.removeRemotePublisher(msg.unpublished);
+      //           self.removeDeveloper(msg.unpublish);
+      //         }
+      //         if(msg.display){
+      //           self.log("join Publisher display:", msg.id, msg.display);
+      //           // var index = self.findRemotePublisherIndexById(msg.id);//creare
+      //           var index = self.findDeveloperIndexById(msg.id);
+      //           if(index !== -1){
+      //             self.set('remotePublishers.'+index+'.display', msg.display);
+      //           }
+      //         }
+      //       }
+      //       else if(event === "talking"){
+      //         //self.log("talking:", msg.id);
+      //         // var index = self.findRemotePublisherIndexById(msg.id);
+      //         var index = self.findDeveloperIndexById(msg.id);
+      //         if(index !== -1){
+      //           self.set('remotePublishers.'+index+'.talking', true);
+      //         }
+      //       }
+      //       else if(event === "stopped-talking"){
+      //         //self.log("stopped talking:", msg.id);
+      //         // var index = self.findRemotePublisherIndexById(msg.id);
+      //         var index = self.findDeveloperIndexById(msg.id);
+      //         if(index !== -1){
+      //           self.set('remotePublishers.'+index+'.talking', false);
+      //         }
+      //       }
+      //     },
+      //     ondataopen: function(){
+      //       self.log('join ondataopen');
+      //       self.datachannel.data=self.janusRoom.data;
+      //     },
+      //     oncleanup: function() {
+      //       self.log('join oncleanup');
+      //     },
+      //     detached: function() {
+      //       self.log('join detached');
+      //       self.janusRoom = null;
+      //     }
+      //   });
+      // },
+      //
+      // unpublish: function(publisher){
+      //   var self = this;
+      //   self.log('unpublish', publisher);
+      //   //
+      //   if(!publisher){
+      //     return;
+      //   }
+      //   //
+      //   if(publisher.handle){
+      //     if(publisher.joined){
+      //       publisher.handle.send({
+      //         message: {
+      //           request: "unpublish",
+      //         }
+      //       });
+      //     }
+      //     publisher.handle.hangup(true);
+      //     publisher.handle.detach();
+      //     self.set('developer.handle', null);
+      //   }
+      //   //
+      //   self.set('developer.stream', null);
+      //   self.developer=null;
+      //   // self.splice('localPublishers', index, 1);
+      // },
+      //
+      // publish: function(publisher){
+      //   var self = this;
+      //   self.log('publish', publisher);
+      //   //
+      //   self.janus.attach({
+      //     plugin: "janus.plugin.videoroom",
+      //     //opaqueId: "WebRTC_Videoconference_"+ Janus.randomString(12),
+      //     success: function(pluginHandle){
+      //       publisher.handle = pluginHandle;
+      //       self.log("publish plugin:", pluginHandle.getPlugin(), 'id:', pluginHandle.getId());
+      //
+      //       // publish to room
+      //       var media = {
+      //         video: publisher.video,
+      //         audio: publisher.audio,
+      //         videoSend: publisher.videoSend,
+      //         audioSend: publisher.audioSend,
+      //         // data:true,
+      //       }
+      //
+      //       var participantId = (self.participantName.hashCode() << 8) + (publisher.display[0] << 4) + publisher.display[1];
+      //       self.log('publish participantId:', participantId);
+      //
+      //       pluginHandle.createOffer({
+      //         media: media,
+      //         success: function(jsep){
+      //           pluginHandle.send({
+      //             message: {
+      //               request: "joinandconfigure",
+      //               room: self.room._id,
+      //               ptype: 'publisher',
+      //               id: participantId,
+      //               display: self.participantName,
+      //               pin: self.pin,
+      //               // data: true,
+      //               video: publisher.videoSend,
+      //               audio: publisher.audioSend,
+      //               bitrate: publisher.bitrate,
+      //               videoRecv: false,
+      //               audioRecv: false,
+      //             },
+      //             jsep: jsep
+      //           });
+      //           self.log("publish request sent");
+      //         },
+      //         error: function(error){
+      //           self.log("publish error:", error);
+      //         }
+      //       });
+      //     },
+      //     error: function(err){
+      //       self.log("publish Couldn't attach to the plugin because: ", err);
+      //     },
+      //     iceState: function(icestate){
+      //       self.log('publish iceState', icestate);
+      //     },
+      //     mediaState: function(type, on){
+      //       self.log('publish mediaState', type, on);
+      //     },
+      //     slowLink: function(uplink){
+      //       self.log('publish slowLink', uplink);
+      //     },
+      //     onmessage: function(msg, jsep){
+      //       self.log("publish onmessage", msg, 'jsep:', jsep);
+      //
+      //       //
+      //       if(jsep){
+      //         publisher.handle.handleRemoteJsep({
+      //           jsep: jsep
+      //         });
+      //       }
+      //
+      //       //
+      //       var event = msg.videoroom;
+      //       if(!event){
+      //         return;
+      //       }
+      //
+      //       if(msg.error){
+      //         console.error('publish error:', msg.error);
+      //         // self.showError(msg.error);
+      //         self.unpublish(publisher);
+      //         return;
+      //       }
+      //
+      //       if(event === "joined"){
+      //         self.log('publish joined', msg);
+      //         self.set('developer.joined', true);
+      //       }
+      //       else if(event === "destroyed") {
+      //         self.log("publish room destroyed");
+      //         self.unpublish(publisher);
+      //         return;
+      //       }
+      //       else if(event === "event"){
+      //         if(msg.reason === 'kicked'){
+      //           self.log('publish kicked');
+      //           // self.showMessage('Kicked');
+      //           self.stop();
+      //           return;
+      //         }
+      //         if(msg.leaving){
+      //           self.log("publish leaving", msg.leaving);
+      //           if(msg.leaving === 'ok'){
+      //             self.unpublish(publisher);
+      //           }
+      //         }
+      //         if(msg.unpublished){
+      //           self.log("publish unpublished", msg.unpublished);
+      //           if(msg.unpublished === 'ok'){
+      //             self.unpublish(publisher);
+      //           }
+      //         }
+      //       }
+      //     },
+      //     webrtcState: function(state, reason) {
+      //       self.log('publish webrtcState', state, reason);
+      //       if(!state){
+      //         self.unpublish(publisher);
+      //       }
+      //     },
+      //     onlocalstream: function(stream) {
+      //       self.log('publish onlocalstream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+      //       self.set('developer.stream', stream);
+      //     },
+      //     oncleanup: function() {
+      //       self.log('join oncleanup');
+      //       //self.log("The plugin handle is still valid so we can create a new one");
+      //       //self.stop();
+      //     },
+      //     detached: function() {
+      //       self.log('publish detached');
+      //       self.set('developer.handle', null);
+      //       //self.log("The plugin handle is not valid anymore");
+      //     }
+      //   });
+      // },
+      //
+      // addDeveloper: function(id, display, publisher, talking){
+      //   var self = this;
+      //   self.log('addDeveloper', id, display, publisher, talking);
+      //
+      //   var participantId = self.participantName.hashCode();
+      //
+      //   // don't add self
+      //   if((id >> 8) === participantId){
+      //     return;
+      //   }
+      //
+      //   // don't add the same publisher
+      //   var index = self.findDeveloperIndexById(id);
+      //   if(index !== -1){
+      //     return;
+      //   }
+      //
+      //   // add
+      //   var developer = {
+      //     id: id,
+      //     display: display,
+      //     publisher: publisher,
+      //     stream: null,
+      //     videoStream: null,
+      //     audioStream: null,
+      //     //
+      //     handle: null,
+      //     video: true,
+      //     audio: true,
+      //     data: (id & 0xFF) === 0xFF,
+      //     talking: talking,
+      //   };
+      //
+      //   //
+      //   self.push('developers', developer);
+      //   var index = self.developers.length-1;
+      //
+      //   // auto open remote publishers
+      //   if(publisher /*&& !isMobile.any*/){
+      //     setTimeout(function(){
+      //       self.openRemotePublisher(developer);
+      //     }, 500);
+      //   }
+      //
+      // },
+      //
+      // openRemotePublisher: function(remotePublisher){
+      //   var self = this;
+      //   if(!remotePublisher){
+      //     return;
+      //   }
+      //   if(remotePublisher.handle){
+      //     console.error('remotePublisher handle already attached', id);
+      //     return;
+      //   }
+      //   self.log('openRemotePublisher', remotePublisher);
+      //   //
+      //   if(!self.janus){
+      //     return;
+      //   }
+      //   //
+      //   self.janus.attach({
+      //     plugin: "janus.plugin.videoroom",
+      //     // opaqueId: "WebRTC_Videoconference_"+ Janus.randomString(12),
+      //     success: function(pluginHandle){
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('developer not found', remotePublisher);
+      //         return;
+      //       }
+      //
+      //       self.set('developers.'+index+'.handle', pluginHandle);
+      //       //
+      //       pluginHandle.send({
+      //         message: {
+      //           request: "join",
+      //           room: self.room._id,
+      //           ptype: "listener",
+      //           feed: remotePublisher.id,
+      //           video: remotePublisher.video,
+      //           audio: remotePublisher.audio,
+      //           pin: self.pin,
+      //           //private_id: self.participantName.hashCode(),
+      //           data: remotePublisher.data,
+      //           //data: true,
+      //         },
+      //         success: function(result){
+      //           self.log('openRemotePublisher', result);
+      //         },
+      //         error: function(err){
+      //           console.error("openRemotePublisher error:", err);
+      //         }
+      //       });
+      //     },
+      //     error: function(cause){
+      //       self.log('openRemotePublisher', "Couldn't attach to the plugin:", cause);
+      //     },
+      //     iceState: function(icestate){
+      //       self.log('openRemotePublisher icestate', icestate);
+      //     },
+      //     mediaState: function(type, on){
+      //       self.log('openRemotePublisher mediaState', type, on);
+      //     },
+      //     slowLink: function(uplink){
+      //       self.log('openRemotePublisher slowLink', uplink);
+      //     },
+      //     onmessage: function(msg, jsep) {
+      //       self.log('openRemotePublisher onmessage', msg, "jsep:", jsep);
+      //
+      //       var event = msg.videoroom;
+      //       if(event){
+      //         if(event === "attached") {
+      //           self.log('openRemotePublisher attached', remotePublisher);
+      //         }
+      //         if(msg.error){
+      //           console.error('openRemotePublisher error', msg.error);
+      //           self.showError(msg.error);
+      //         }
+      //       }
+      //
+      //       if(jsep){
+      //         self.log('openRemotePublisher jsep', jsep);
+      //         // Answer and attach
+      //         remotePublisher.handle.createAnswer({
+      //           jsep: jsep,
+      //           // Add data:true here if you want to subscribe to datachannels as well
+      //           // (obviously only works if the publisher offered them in the first place)
+      //           media: {
+      //             audioSend: false,
+      //             videoSend: false,
+      //             data: remotePublisher.data
+      //           },	// We want recvonly audio/video
+      //           success: function(jsep) {
+      //             self.log('openRemotePublisher', "Got SDP!", jsep);
+      //             remotePublisher.handle.send({
+      //               message: {
+      //                 request: "start",
+      //                 room: self.room._id,
+      //               },
+      //               jsep: jsep,
+      //             });
+      //           },
+      //           error: function(error) {
+      //             console.error('openRemotePublisher', "WebRTC error:", error);
+      //           }
+      //         });
+      //       }
+      //     },
+      //     webrtcState: function(state, err){
+      //       self.log('openRemotePublisher webrtcState', state, err);
+      //     },
+      //     onremotestream: function(stream){
+      //       self.log('openRemotePublisher onremotestream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('remotePublisher not found', remotePublisher);
+      //         return;
+      //       }
+      //
+      //       self.set('developers.'+index+'.stream', stream);
+      //
+      //       var videoTracks = stream.getVideoTracks();
+      //       if(videoTracks.length > 0){
+      //         var videoStream = new MediaStream;
+      //         videoStream.addTrack(videoTracks[0]);
+      //         self.set('developers.'+index+'.videoStream', videoStream);
+      //       }
+      //
+      //       var audioTracks = stream.getAudioTracks();
+      //       if(audioTracks.length > 0){
+      //         var audioStream = new MediaStream;
+      //         audioStream.addTrack(audioTracks[0]);
+      //         self.set('developers.'+index+'.audioStream', audioStream);
+      //       }
+      //
+      //     },
+      //     ondataopen: function(){
+      //       self.log('openRemotePublisher ondataopen');
+      //     },
+      //     // ondata: function(data){
+      //     //   self.log('openRemotePublisher', 'ondata', data);
+      //     //   self.set('datachannel.ondata',data);
+      //     // },
+      //     ondata: self.datachannel.ondata,
+      //     detached: function() {
+      //       self.log('openRemotePublisher detached');
+      //     },
+      //     oncleanup: function() {
+      //       self.log('openRemotePublisher oncleanup');
+      //       var index = self.findDeveloperIndexById(remotePublisher.id);
+      //       if(index === -1){
+      //         console.error('remotePublisher not found', remotePublisher);
+      //         return;
+      //       }
+      //       self.set('developers.'+index+'.handle', null);
+      //     }
+      //   });
+      // },
+      //
+      // removeDeveloper: function(id){
+      //   var self = this;
+      //   self.log('removeDeveloper', id);
+      //
+      //   var index = self.findDeveloperIndexById(id);
+      //   if(index === -1){
+      //     return;
+      //   }
+      //
+      //   var developer = self.developers[index];
+      //   if(developer.handle){
+      //     developer.handle.detach();
+      //   }
+      //
+      //   //
+      //   self.splice('developers', index, 1);
+      // },
+      //
+      // findDeveloperIndexById: function(id){
+      //   var self = this;
+      //   return self.developers.findIndex(function(p){
+      //     return p.id == id;
+      //   });
+      // },
+      //
+      // leave: function(){
+      //   var self = this;
+      //   self.log('leave');
+      //   //
+      //   if(!self.janusRoom){
+      //     return;
+      //   }
+      //   //
+      //   if(self.janusRoom.joined){
+      //     self.janusRoom.send({
+      //       message: {
+      //         request: "unpublish",
+      //       }
+      //     });
+      //   }
+      //   self.janusRoom.hangup(true);
+      //   self.janusRoom.detach();
+      //   self.janusRoom = null;
+      //
+      //   //
+      //   while(self.developers.length > 0){
+      //     self.removeDeveloper(self.developers[0].id);
+      //   }
+      // },
+      //
+      // _onAddLocalPublisher: function(){
+      //   var self = this;
+      //   self.log('onAddLocalPublisher');
+      //   //
+      //   var el = MediaDialog(function(err, result){
+      //     self.log('MediaDialog', err, result);
+      //     if(!err){
+      //       var publisher = result.detail;
+      //       publisher.handle = null;
+      //       publisher.stream = null;
+      //       publisher.joined = false;
+      //
+      //       self.developer = publisher;
+      //       self.publish(self.developer);
+      //
+      //       // self.push('developer', publisher);
+      //       //
+      //       // self.publishCallback(publisher, self.developer.length-1);
+      //     }
+      //   });
+      //   el.room = self.room;
+      // },
+      //
+      // _roomChanged: function(room, old){
+      //   var self = this;
+      //   //
+      //   // if(room){
+      //   //   //self.log('_roomChanged', room);
+      //   //   if(!room.running){
+      //   //     self.stop();
+      //   //   }
+      //   // }
+      //   // else{
+      //     self.stop();
+      //   // }
+      // },
+      //
+      // filterRemotePublishers: function(publisher){
+      //   var self=this;
+      //   var found=false;
+      //   if (publisher.data){
+      //     var i=0;
+      //     while (!found && i<self.developers.length){
+      //       found=(self.developers[i].display===publisher.display && self.developers[i].id!==publisher.id);
+      //       i++;
+      //     }
+      //   }
+      //   return !found;
+      // },
 
       // userChanged: function(user, old){
       //  var self = this;

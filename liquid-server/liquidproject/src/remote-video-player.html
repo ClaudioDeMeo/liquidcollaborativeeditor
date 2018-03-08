@@ -10,7 +10,6 @@
 
 <script src="../bower_components/screenfull/dist/screenfull.min.js" type="text/javascript"></script>
 
-<!-- <link rel="import" href="shared-styles.html"> -->
 <link rel="import" href="base/utils-behavior.html">
 
 
@@ -179,6 +178,7 @@
     Polymer({
       is:'remote-video-player',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
         publisher: {
@@ -192,8 +192,6 @@
           notify: true,
         }
       },
-
-      log: console.log,
 
       publisherVideoIcon: function(enabled){
         return enabled ? 'av:videocam' : 'av:videocam-off';

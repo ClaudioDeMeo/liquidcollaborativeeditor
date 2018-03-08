@@ -12,6 +12,7 @@
 
 <link rel="import" href="file-uploader.html">
 <link rel="import" href="new-file.html">
+<link rel="import" href="base/utils-behavior.html">
 
 <dom-module id="file-manager">
   <template>
@@ -101,8 +102,8 @@
       }
 
     </style>
-      <div class="flex">
-        <paper-card class="main-card">
+    <div class="flex">
+      <paper-card class="main-card">
         <div class="card-content layout flex horizontal center center-justified">
           <paper-button class="fileBtn" on-tap="newFile">
             <div class="layout vertical center center-justified">
@@ -118,7 +119,7 @@
             </div>
           </paper-button>
         </div>
-        </paper-card>
+      </paper-card>
       <paper-card class="layout vertical" hidden$={{!room}}>
         <div class="card-content layout vertical">
           <div class="card-header layout horizontal">
@@ -183,6 +184,7 @@
     Polymer({
       is:'file-manager',
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
       properties: {
         janus: {
@@ -225,8 +227,6 @@
           notify: true,
         }
       },
-
-      log: console.log,
 
       _fileObserver: function(){
         var self = this;
@@ -377,7 +377,7 @@
               self.set('list',data.list);
             }
             if (self.list.length == 0){
-              // self.deleteRoom();
+              self.deleteRoom();
             }
           }else if(this.readyState == 4 && (this.status == 0 || this.status == 404) ){  //ERROR
             self.room = null;

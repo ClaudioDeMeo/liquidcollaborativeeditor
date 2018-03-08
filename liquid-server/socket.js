@@ -41,11 +41,37 @@ module.exports = function(server){
     }
   });
 
-  var io = require('socket.io')(server);
+  //OT Function
+  // function operationTransformation(data,fid,cb){
+  //   fhistory[fid].buffer.filter(function(element){
+  //     return element.position.start <= data.position.start;
+  //   }).forEach(function(element){
+  //     data.position.start += element.position.end - element.position.start;
+  //     data.position.end += element.position.end - element.position.start;
+  //   });
+  //   cb && cb(data);
+  //   return data;
+  // }
 
+  var io = require('socket.io')(server);
+  // var p2p = require('socket.io-p2p-server').Server;
+  // io.use(p2p);
   io.on('connection', function(socket){
     var fpath = null;
     console.log("new client: " + socket.id);
+
+    //utils function
+    // function getFile(fid){
+    //   if (fs.existsSync(prefix + flist[fid].name) && flist[fid].room == socket.room){
+    //     socket.fid = fid;
+    //     var content = fs.readFileSync(prefix + flist[fid].name);
+    //     if (content != '' && content != undefined && content != null){
+    //       socket.emit('file',{'content' : content});
+    //     }
+    //   }else{
+    //     socket.emit('error', {error: 'file not found'});
+    //   }
+    // }
 
     //new client connection
     socket.on('ready', function(msg){
@@ -83,6 +109,21 @@ module.exports = function(server){
       }
     });
 
+    // socket.on('changeLanguage',function(data){
+    //   if (flist[socket.room]){
+    //     console.log(data);
+    //     flist[socket.room].language = data.newLanguage;
+    //     fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+    //     socket.broadcast.to(socket.room).emit('changeLanguage', data);
+    //   }
+    // });
+    //get file
+    // socketStream(socket).on('getfile', function(stream,fid){
+    //   if (flist[fid]){
+    //     getFile(fid);
+    //   }
+    // });
+
     //new data from client
     socket.on('data', function(data){
       console.log("data-in:",data);
@@ -108,24 +149,38 @@ module.exports = function(server){
         socket.emit('feedback',data);
         socket.broadcast.to(socket.room).emit('data', data);
         fhistory[socket.room].buffer.push(data);
-        switch (data.action){
+        var operation = data;
+        // var file = fs.openSync(fpath,'rs+');
+        // var position = (operation.action == 'insert') ? operation.position.start : operation.position.end;
+        // var content = fs.readFileSync(fpath).toString().substring(position);
+        switch (operation.action){
           case 'insert':
+            // var content = fs.readFileSync(fpath).toString().substring(operation.position.start);
             var content = fs.readFileSync(fpath).toString();
-            var text = content.substring(0,data.position.start) + data.text + content.substring(data.position.start);
+            var text = content.substring(0,operation.position.start) + operation.text + content.substring(operation.position.start);
             fs.writeFileSync(fpath,text);
+            // fs.writeSync(file, text, operation.position.start, 'utf8');
             break;
           case 'remove':
+            // var content = fs.readFileSync(fpath).toString().substring(operation.position.end);
             var content = fs.readFileSync(fpath).toString();
-            var text =  content.substring(0,data.position.start) + content.substring(data.position.end);
+            var text =  content.substring(0,operation.position.start) + content.substring(operation.position.end);
             fs.writeFileSync(fpath,text);
+            // fs.writeSync(file, content, operation.position.start, 'utf8');
             break;
         }
+        // fs.close(file);
+        //
+        // if (fhistory[socket.room].buffer.length >= config.HISTORY_LENGTH){
+        //   fhistory[socket.room].buffer.shift();
+        // }
       }else{
         console.log("data: file not found");
         socket.emit('fileNotFound', {error: 'file not found'});
         if (fhistory[socket.room]){
           delete fhistory[socket.room];
         }
+        // socket.broadcast.to(socket.room).emit('error', {error: 'file not found'});
       }
     });
 

@@ -10,6 +10,8 @@
 <link rel="import" href="../bower_components/paper-input/paper-input.html">
 <link rel="import" href="../bower_components/paper-dropdown-input/paper-dropdown-input.html">
 
+<link rel="import" href="base/utils-behavior.html">
+
 <dom-module id="new-file">
   <template>
     <style include="shared-styles">
@@ -102,6 +104,7 @@
       is: 'new-file',
 
       behaviors: [
+        Polymer.UtilsBehavior,
       ],
 
       properties: {
@@ -144,8 +147,6 @@
           observer: "_checkInput",
         },
       },
-
-      log:console.log,
 
       ready: function(){
         var self = this;

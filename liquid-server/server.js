@@ -29,11 +29,6 @@ if (config.PROTOCOL == 'https'){
   server = http.createServer(app).listen(port);
 }
 
-function checkRoom(room){
-  var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
-  return rlist[room];
-}
-
 function auth(room,password){
   var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
   return rlist[room] && rlist[room].password == password;
@@ -50,7 +45,8 @@ app.use(bodyParser.urlencoded({
 
 //get file list
 app.post('/list/:room', function(req,res){
-  if (checkRoom(req.params.room)){
+  var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
+  if (rlist[req.params.room]){
     if (auth(req.params.room,req.body.password)){
       var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
       res.json({
@@ -67,7 +63,7 @@ app.post('/list/:room', function(req,res){
       res.end("Unauthorized");
     }
   }else{
-    res.status(404);
+    res.status(204);
     res.end("Room not found");
   }
 });
@@ -104,37 +100,50 @@ app.post('/download/:fid', function(req,res){
 
 //create new file
 app.post('/newfile',function(req,res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
   var fdata = {
     name : req.body.name,
     language : req.body.language,
     room : req.body.room
   };
-  var index = Object.keys(flist).find(function(element){
-    return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
-  });
-  if (index === undefined){
-    var fid = "";
-    do {
-      fid = randomstring.generate();
-    }while(flist[fid]);
-    flist[fid] = fdata;
-    if (!fs.existsSync(path.join(prefix,fdata.room))){
-      fs.mkdirSync(path.join(prefix,fdata.room));
-    }
-    fs.writeFileSync(path.join(prefix,fdata.room,fdata.name),"");
-    fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
-    res.status(200);
-    res.end();
-  }else{
-    res.status(406);
-    res.end("file already exist");
+  var password = req.body.password;
+  if (!rlist[fdata.room]){
+    rlist[fdata.room] = {
+      password: password
+    };
   }
+  if (rlist[fdata.room].password == password){
+    var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+    var index = Object.keys(flist).find(function(element){
+      return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
+    });
+    if (index === undefined){
+      var fid = "";
+      do {
+        fid = randomstring.generate();
+      }while(flist[fid]);
+      flist[fid] = fdata;
+      if (!fs.existsSync(path.join(prefix,fdata.room))){
+        fs.mkdirSync(path.join(prefix,fdata.room));
+      }
+      fs.writeFileSync(path.join(prefix,fdata.room,fdata.name),"");
+      fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
+      fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+      res.status(200);
+      res.end("File added");
+    }else{
+      res.status(406);
+      res.end("file already exist");
+    }
+  }else{
+    res.status(401);
+    res.end("Unauthorized");
+  }
+
 });
 
 //upload file
 app.post('/upload',function(req, res){
-  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var form = new formidable.IncomingForm();
   form.multiples = true;
   form.encoding = 'utf-8';
@@ -144,6 +153,7 @@ app.post('/upload',function(req, res){
     language: "",
     room: "",
   };
+  var password;
   form.on('field',function(field,value){
     switch(field){
       case 'language':
@@ -153,27 +163,43 @@ app.post('/upload',function(req, res){
         fdata.room = value;
         form.uploadDir = path.join(prefix,value);
         break;
+      case 'password':
+        password: value;
+        break;
     }
   });
   form.on('file', function(field, file) {
-    if (!fs.existsSync(form.uploadDir)){
-      fs.mkdirSync(form.uploadDir);
+    var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
+    if (!rlist[fdata.room]){
+      rlist[fdata.room] = {
+        password: password
+      };
     }
-    fs.rename(file.path, path.join(form.uploadDir, file.name));
-    fdata.name = file.name;
-    var index = Object.keys(flist).find(function(element){
-      return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
-    });
-    if (index == undefined){
-      var fid = "";
-      do {
-        fid = randomstring.generate();
-      }while(flist[fid]);
-      flist[fid] = fdata;
-      fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+    if (rlist[fdata.room].password == password){
+      if (!fs.existsSync(form.uploadDir)){
+        fs.mkdirSync(form.uploadDir);
+      }
+      fs.rename(file.path, path.join(form.uploadDir, file.name));
+      fdata.name = file.name;
+      var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+      var index = Object.keys(flist).find(function(element){
+        return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
+      });
+      if (index == undefined){
+        var fid = "";
+        do {
+          fid = randomstring.generate();
+        }while(flist[fid]);
+        flist[fid] = fdata;
+        fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
+        fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+      }else{
+        res.status(406);
+        res.end("file already exist");
+      }
     }else{
-      res.status(406);
-      res.end("file already exist");
+      res.status(401);
+      res.end("Unauthorized")
     }
   });
   form.on('error', function(err) {

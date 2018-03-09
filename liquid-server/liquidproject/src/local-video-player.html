@@ -102,29 +102,29 @@
 
     </style>
     <!-- VIDEO-PLAYER DEFINE -->
-    <div id="container" class="layout-embed layout-embed-4by3" hidden$="[[!publisher]]">
+    <div id="container" class="layout-embed layout-embed-4by3" hidden="[[!publisher]]">
       <div class="layout-embed-content">
         <video
         id="video"
         src-object="[[publisher.stream]]"
         on-tap="toggelGrow"
         autoplay muted
-        hidden$="[[!publisher.stream]]"></video>
+        hidden="[[!publisher.stream]]"></video>
         <div class="layout horizontal center publisher-top">
           <paper-icon-button
           icon="fullscreen"
           on-tap="toggleFullscreenPublisher"
-          hidden$="[[!publisher.video]]"></paper-icon-button>
+          hidden="[[!publisher.video]]"></paper-icon-button>
           <paper-icon-button
           title="[[publisher.videoDisplay]]"
           icon="[[publisherVideoIcon(publisher.videoSend)]]"
-          hidden$="[[!publisher.video]]"
-          on-tap="onPausePublisherVideo" disabled$="[[disablePublisherActions]]"></paper-icon-button>
+          hidden="[[!publisher.video]]"
+          on-tap="onPausePublisherVideo" disabled="[[disablePublisherActions]]"></paper-icon-button>
           <paper-icon-button
           title="[[publisher.audioDisplay]]"
           icon="[[publisherAudioIcon(publisher.audioSend)]]"
-          hidden$="[[!publisher.audio]]"
-          on-tap="onPausePublisherAudio" disabled$="[[disablePublisherActions]]"></paper-icon-button>
+          hidden="[[!publisher.audio]]"
+          on-tap="onPausePublisherAudio" disabled="[[disablePublisherActions]]"></paper-icon-button>
           <span class="flex"></span>
           <paper-icon-button
           icon="close"
@@ -216,33 +216,15 @@
         self.log('onRemovePublisher', self.publisher.display);
         //
         if(self.publisher){
-          self.unpublish(self.publisher);
-          self.publisher=null;
-        }
-      },
-
-      unpublish: function(publisher){
-        var self = this;
-        self.log('unpublish', publisher);
-        //
-        if(!publisher){
-          return;
-        }
-        //
-        if(publisher.handle){
-          if(publisher.joined){
-            publisher.handle.send({
+          if(self.publisher.handle){
+            self.publisher.handle.send({
               message: {
                 request: "unpublish",
               }
             });
+            // self.set('publisher', null);
           }
-          publisher.handle.hangup(true);
-          publisher.handle.detach();
-          self.set('publisher.handle', null);
         }
-        //
-        self.set('publisher.stream', null);
       },
 
       toggleFullscreenPublisher: function(){
@@ -250,7 +232,7 @@
         self.log('toggleFullscreenPublisher', self.publisher.display);
         if(self.publisher){
           if(screenfull.enabled){
-            screenfull.toggle(self.$.video);
+            screenfull.toggle(self.$.container);
           }
         }
       },

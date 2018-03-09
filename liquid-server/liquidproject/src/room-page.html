@@ -211,8 +211,8 @@
           if (self.videoroom){
             self.existRoom(self.roomcandidate, function(result){
               if (!result.exists){
-                self.$.exit.click();
                 self.show_error('room ' + result.room + ' not found');
+                window.location.replace("/");
               }
             });
           }else{
@@ -264,11 +264,12 @@
         self.request('/list/' + self.room, 'POST', {password: self.password})
           .then(function(ret){
             self.flist = [];
+            if (ret.status == 204){
+              self.deleteRoom();
+              return;
+            }
             if (ret.response.list && ret.response.list.length > 0){
               self.set('flist', ret.response.list);
-            }
-            if (ret.status == 404){
-              self.deleteRoom();
             }
           })
           .catch(function(err){
@@ -292,7 +293,9 @@
       deleteFile: function(e){
         var self = this;
         var fid = e.currentTarget.fid;
-        var fname = self.flist[fid].name;
+        var fname = self.flist.filter(function(element){
+          return element.fid == fid;
+        }).name;
         self.request('/delete', 'POST', {fid: fid, password: self.password})
           .then(function(ret){
             switch (ret.status) {

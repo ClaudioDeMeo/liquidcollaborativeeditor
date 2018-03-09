@@ -59,6 +59,12 @@
           notify: true,
         },
 
+        developer: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+
         developers: {
           type: Array,
           value: function(){ return [] },
@@ -109,6 +115,9 @@
           },
           iceState: function(icestate){
             self.log('videoroom iceState', icestate);
+            if (icestate == "connected"){
+              self.set('developer.handle', self.videoroom);
+            }
           },
           mediaState: function(type, on){
             self.log('videoroom mediaState', type, on);
@@ -124,9 +133,15 @@
               self.reset();
               return;
             }
+            if (msg.error_code===433){
+              self.log("Unauthorized");
+              self.show_error("Wrong password");
+              self.reset();
+              return;
+            }
             //
             if(jsep){
-              self.janusRoom.handleRemoteJsep({
+              self.videoroom.handleRemoteJsep({
                 jsep: jsep
               });
             }
@@ -170,11 +185,37 @@
                 self.log("videoroom leaving", msg.leaving);
                 // remove remote publisher
                 self.removeDeveloper(msg.leaving);
+                // remove local publisher
+                if(msg.leaving === 'ok'){
+                  if (self.developer){
+                    if (self.developer.handle){
+                      self.developer.handle.send({
+                        message: {
+                          request: "unpublish",
+                        }
+                      });
+                    }
+                    self.set('developer', null);
+                  }
+                }
               }
               if(msg.unpublished){
                 self.log("videoroom unpublished", msg.unpublished);
-                // self.removeRemotePublisher(msg.unpublished);
+                // remove remote publisher
                 self.removeDeveloper(msg.unpublish);
+                // remove local publisher
+                if(msg.unpublished === 'ok'){
+                  if (self.developer){
+                    if (self.developer.handle){
+                      self.developer.handle.send({
+                        message: {
+                          request: "unpublish",
+                        }
+                      });
+                    }
+                    self.set('developer', null);
+                  }
+                }
               }
               if(msg.display){
                 self.log("videoroom Publisher display:", msg.id, msg.display);
@@ -201,6 +242,10 @@
           },
           oncleanup: function() {
             self.log('videoroom join oncleanup');
+          },
+          onlocalstream: function(stream){
+            self.log('onlocalstream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+            self.set('developer.stream', stream);
           },
           detached: function() {
             self.log('videoroom join detached');

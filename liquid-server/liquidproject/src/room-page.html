@@ -238,24 +238,66 @@
           self.createSession();
         }
         setTimeout(function(){
-          self.videoroom.send({
-            message: {
-              request: "join",
-              room: parseInt(self.roomcandidate),
-              ptype: 'publisher',
-              display: self.username,
-              pin: self.password,
+          self.videoroom.createOffer({
+            media: {
+              video: false,
+              audio: false,
+              videoSend: false,
+              audioSend: false,
+              data: true,
             },
-            success: function(result){
-              self.log('join success', result);
-              self.refreshFileListInterval = setInterval(function(){
-                self.getFileList(self.room);
-              },2000);
+            success: function(jsep){
+              self.videoroom.send({
+                message: {
+                  request: "joinandconfigure",
+                  room: parseInt(self.roomcandidate),
+                  ptype: 'publisher',
+                  display: self.username,
+                  id: (self._hashCode(self.username) << 8) + 0xFF,
+                  pin: self.password,
+                  video: false,
+                  audio: false,
+                  videoSend: false,
+                  audioSend: false,
+                  videoRecv: false,
+                  audioRecv: false,
+                  data: true,
+                },
+                jsep: jsep,
+                success: function(result){
+                  self.log('join success', result);
+                  self.refreshFileListInterval = setInterval(function(){
+                    self.getFileList(self.room);
+                  },2000);
+                },
+                error: function(err){
+                  console.error("join error:", err);
+                }
+              });
+              self.log("publish request sent");
             },
-            error: function(err){
-              console.error("join error:", err);
+            error: function(error){
+              self.log("publish error:", error);
             }
           });
+          // self.videoroom.send({
+          //   message: {
+          //     request: "join",
+          //     room: parseInt(self.roomcandidate),
+          //     ptype: 'publisher',
+          //     display: self.username,
+          //     pin: self.password,
+          //   },
+          //   success: function(result){
+          //     self.log('join success', result);
+          //     self.refreshFileListInterval = setInterval(function(){
+          //       self.getFileList(self.room);
+          //     },2000);
+          //   },
+          //   error: function(err){
+          //     console.error("join error:", err);
+          //   }
+          // });
         },200);
       },
 

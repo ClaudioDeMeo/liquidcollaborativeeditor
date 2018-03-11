@@ -98,11 +98,14 @@
         <hr>
         <!-- PARTICIPANT LIST AND VIDEO -->
         <sortable-list class="list" dragging="{{dragging}}" sortable=".item">
-          <template is="dom-repeat" items="[[developers]]">
+          <template id="developers" is="dom-repeat" items=[[developers]] filter="filterRemotePublishers">
             <paper-item class="remote-item item">
               <div class="layout horizontal center wrap">
                 <remote-video-player class="remote" publisher="[[item]]"></remote-video-player>
-                <b>[[item.display]]</b>
+                <div>
+                  <b>[[item.display]]</b>
+                  <iron-icon icon="create" hidden="[[!item.writing]]"></iron-icon>
+                </div>
               </div>
             </paper-item>
           </template>
@@ -130,7 +133,19 @@
         Polymer.UtilsBehavior,
       ],
       properties: {
+      },
 
+      filterRemotePublishers: function(publisher){
+        var self = this;
+        var found = false;
+        if (publisher.data){
+          var i=0;
+          while (!found && i<self.developers.length){
+            found=(self.developers[i].display===publisher.display && self.developers[i].id!==publisher.id);
+            i++;
+          }
+        }
+        return !found;
       },
 
       _onAddLocalPublisher: function(){
@@ -143,7 +158,7 @@
             var publisher = result.detail;
             publisher.handle = null;
             publisher.stream = null;
-            // publisher.joined = false;
+            publisher.joined = false;
 
             self.set('developer', publisher);
             self.publish(self.developer);
@@ -156,38 +171,189 @@
         // el.room = self.room;
       },
 
-      publish: function(publisher){
+      publish: function(){
         var self = this;
-        self.log('publish', publisher);
-        self.videoroom.createOffer({
-          media: {
-            video: publisher.video,
-            audio: publisher.audio,
-            videoSend: publisher.videoSend,
-            audioSend: publisher.audioSend,
-          },
-          success: function(jsep){
-            self.videoroom.send({
-              message: {
-                request: "configure",
-                // room: self.room,
-                // ptype: 'publisher',
-                // display: self.username,
-                // pin: self.password,
-                video: publisher.videoSend,
-                audio: publisher.audioSend,
-                bitrate: publisher.bitrate,
-                videoRecv: false,
-                audioRecv: false,
+        self.log('publish', self.developer);
+        self.janus.attach({
+          plugin: "janus.plugin.videoroom",
+          success: function(pluginHandle){
+            self.set('developer.handle', pluginHandle);
+            self.log("publish plugin:", pluginHandle.getPlugin(), 'id:', pluginHandle.getId());
+
+            // publish to room
+            var media = {
+              video: self.developer.video,
+              audio: self.developer.audio,
+              videoSend: self.developer.videoSend,
+              audioSend: self.developer.audioSend,
+            }
+            //
+            pluginHandle.createOffer({
+              media: media,
+              success: function(jsep){
+                pluginHandle.send({
+                  message: {
+                    request: "joinandconfigure",
+                    room: self.room,
+                    ptype: 'publisher',
+                    id: self._hashCode(self.username) << 8,
+                    display: self.username,
+                    pin: self.password,
+                    data: false,
+                    video: self.developer.videoSend,
+                    audio: self.developer.audioSend,
+                    bitrate: self.developer.bitrate,
+                    videoRecv: false,
+                    audioRecv: false,
+                  },
+                  jsep: jsep
+                });
+                self.log("publish request sent");
               },
-              jsep: jsep
+              error: function(error){
+                self.log("publish error:", error);
+              }
             });
-            self.log("publish request sent");
           },
-          error: function(error){
-            self.log("publish error:", error);
+          error: function(err){
+            self.log("publish Couldn't attach to the plugin because: ", err);
+          },
+          iceState: function(icestate){
+            self.log('publish iceState', icestate);
+          },
+          mediaState: function(type, on){
+            self.log('publish mediaState', type, on);
+          },
+          slowLink: function(uplink){
+            self.log('publish slowLink', uplink);
+          },
+          onmessage: function(msg, jsep){
+            self.log("publish onmessage", msg, 'jsep:', jsep);
+
+            //
+            if(jsep){
+              self.developer.handle.handleRemoteJsep({
+                jsep: jsep
+              });
+            }
+
+            //
+            var event = msg.videoroom;
+            if(!event){
+              return;
+            }
+
+            if(msg.error){
+              console.error('publish error:', msg.error);
+              self.show_error(msg.error);
+              self.unpublish();
+              return;
+            }
+
+            if(event === "joined"){
+              self.log('publish joined', msg);
+              self.set('developer.joined', true);
+            }
+            else if(event === "destroyed") {
+              self.log("publish room destroyed");
+              self.unpublish();
+              self.reset();
+              return;
+            }
+            else if(event === "event"){
+              if(msg.reason === 'kicked'){
+                self.log('publish kicked');
+                self.unpublish();
+                self.reset();
+                return;
+              }
+              if(msg.leaving){
+                self.log("publish leaving", msg.leaving);
+                if(msg.leaving === 'ok'){
+                  self.unpublish();
+                }
+              }
+              if(msg.unpublished){
+                self.log("publish unpublished", msg.unpublished);
+                if(msg.unpublished === 'ok'){
+                  self.unpublish();
+                }
+              }
+            }
+          },
+          webrtcState: function(state, reason) {
+            self.log('publish webrtcState', state, reason);
+            if(!state){
+              self.unpublish();
+            }
+          },
+          onlocalstream: function(stream) {
+            self.log('publish onlocalstream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+            self.set('developer.stream', stream);
+          },
+          oncleanup: function() {
+            self.log('join oncleanup');
+          },
+          detached: function() {
+            self.log('publish detached');
+            self.set('developer.handle', null);
           }
         });
+
+        // self.videoroom.createOffer({
+        //   media: {
+        //     video: publisher.video,
+        //     audio: publisher.audio,
+        //     videoSend: publisher.videoSend,
+        //     audioSend: publisher.audioSend,
+        //   },
+        //   success: function(jsep){
+            // self.videoroom.send({
+            //   message: {
+            //     request: "configure",
+            //     // room: self.room,
+            //     // ptype: 'publisher',
+            //     // display: self.username,
+            //     // pin: self.password,
+            //     video: publisher.videoSend,
+            //     audio: publisher.audioSend,
+            //     bitrate: publisher.bitrate,
+            //     videoRecv: false,
+            //     audioRecv: false,
+            //     // data: false
+            //   },
+            //   // jsep: jsep,
+            //   success: function(e){
+            //     self.log(e);
+            //   },
+            //   error: function(e){
+            //     self.log(e);
+            //   }
+            // });
+            // self.log("publish request sent");
+        //   },
+        //   error: function(error){
+        //     self.log("publish error:", error);
+        //   }
+        // });
+      },
+
+      unpublish: function(){
+        var self = this;
+        if(self.developer.handle){
+          if(self.developer.joined){
+            self.developer.handle.send({
+              message: {
+                request: "unpublish",
+              }
+            });
+          }
+          self.developer.handle.hangup(true);
+          self.developer.handle.detach();
+          self.set('developer.handle', null);
+        }
+        //
+        self.set('developer.stream', null);
       },
 
     });

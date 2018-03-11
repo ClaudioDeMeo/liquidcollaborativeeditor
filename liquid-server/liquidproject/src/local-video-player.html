@@ -10,7 +10,6 @@
 
 <script src="../bower_components/screenfull/dist/screenfull.min.js" type="text/javascript"></script>
 
-<!-- <link rel="import" href="shared-styles.html"> -->
 <link rel="import" href="base/utils-behavior.html">
 
 
@@ -89,10 +88,8 @@
       }
 
       #container{
-        width: var(--video-player-width,120px);
-        height: var(--video-player-height,90px);
-        max-width: 220px;
-        max-height: 165px;
+        width: var(--video-player-width,100%);
+        height: var(--video-player-height,100%);
         min-width: 120px;
         min-height: 90px;
         -webkit-transition-property: all 1s ease;

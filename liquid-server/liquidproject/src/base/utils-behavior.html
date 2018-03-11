@@ -75,6 +75,19 @@
 
       log: console.log,
 
+      _hashCode: function(string){
+        var hash = 0, i, chr;
+        if (string.length === 0){
+          return hash;
+        }
+        for(i = 0; i < string.length; i++){
+          chr = string.charCodeAt(i);
+          hash = (hash << 7) + chr;
+        }
+        hash = hash & 0x007FFFFF;
+        return hash;
+      },
+
       createSession: function(){
         var self = this;
         if (!self.janus){
@@ -150,6 +163,14 @@
             if(!event){
               return;
             }
+
+            if(msg.error){
+              self.error(msg.error);
+              self.show_error(msg.error);
+              self.reset();
+              return;
+            }
+
             if(event === "joined"){
               self.log('videoroom joined');
               self.videoroom.joined = true;
@@ -202,7 +223,7 @@
               if(msg.unpublished){
                 self.log("videoroom unpublished", msg.unpublished);
                 // remove remote publisher
-                self.removeDeveloper(msg.unpublish);
+                // self.removeDeveloper(msg.unpublish);
                 // remove local publisher
                 if(msg.unpublished === 'ok'){
                   if (self.developer){
@@ -277,24 +298,23 @@
 
         //
         self.splice('developers', index, 1);
+        self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
       },
 
       addDeveloper: function(id, display, talking){
         var self = this;
         self.log('addDeveloper', id, display, talking);
 
-        // var participantId = self.username.hashCode();
-
         // don't add self
-        // if((id >> 8) === participantId){
-        //   return;
-        // }
+        if((id >> 8) === self._hashCode(self.username)){
+          return;
+        }
 
         // don't add the same publisher
-        // var index = self.findDeveloperIndexById(id);
-        // if(index !== -1){
-        //   return;
-        // }
+        var index = self.findDeveloperIndexById(id);
+        if(index !== -1){
+          return;
+        }
 
         // add
         var developer = {
@@ -304,20 +324,21 @@
           stream: null,
           videoStream: null,
           audioStream: null,
-          //
+          data: (id & 0xFF) === 0xFF,
           handle: null,
           video: true,
           audio: true,
           talking: talking,
+          writing: false
         };
 
         //
         self.push('developers', developer);
-
+        self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
         // auto open remote publishers
         // if(!isMobile.any){
           setTimeout(function(){
-            self.openRemotePublisher(developer);
+            self.openRemotePublisher(self.developers[self.developers.length - 1]);
           }, 500);
         // }
       },
@@ -357,6 +378,7 @@
                 feed: remotePublisher.id,
                 video: remotePublisher.video,
                 audio: remotePublisher.audio,
+                data: remotePublisher.data,
                 pin: self.pin,
               },
               success: function(result){
@@ -432,12 +454,14 @@
             }
 
             self.set('developers.' + index + '.stream', stream);
+            self.mainApp().$$("#workgroup").set('developers.' + index + '.stream', stream);
 
             var videoTracks = stream.getVideoTracks();
             if(videoTracks.length > 0){
               var videoStream = new MediaStream;
               videoStream.addTrack(videoTracks[0]);
               self.set('developers.' + index + '.videoStream', videoStream);
+              self.mainApp().$$("#workgroup").set('developers.' + index + '.videoStream', videoStream);
             }
 
             var audioTracks = stream.getAudioTracks();
@@ -445,8 +469,10 @@
               var audioStream = new MediaStream;
               audioStream.addTrack(audioTracks[0]);
               self.set('developers.' + index + '.audioStream', audioStream);
+              self.mainApp().$$("#workgroup").set('developers.' + index + '.audioStream', audioStream);
             }
 
+            self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
           },
           detached: function() {
             self.log('openRemotePublisher detached');

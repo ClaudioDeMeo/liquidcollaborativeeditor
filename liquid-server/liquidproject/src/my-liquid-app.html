@@ -142,19 +142,23 @@
               fallback-selection="my-view404"
               role="main">
               <home-page id="home" name="home"
-                janus={{janus}}
-                room={{room}}
-                videoroom={{videoroom}}
-                roomcandidate={{roomcandidate}}
+                janus="{{janus}}"
+                room="{{room}}"
+                videoroom="{{videoroom}}"
+                developer="{{developer}}"
+                developers="[[developers]]"
+                roomcandidate="{{roomcandidate}}"
                 ></home-page>
               <room-page id="room" name="room"
-                janus={{janus}}
-                videoroom={{videoroom}}
-                developer={{developer}}
-                roomcandidate={{roomcandidate}}
-                room={{room}}
-                username={{username}}
-                password={{password}}></room-page>
+                janus="{{janus}}"
+                videoroom="{{videoroom}}"
+                developer="{{developer}}"
+                developers="[[developers]]"
+                roomcandidate="{{roomcandidate}}"
+                room="{{room}}"
+                username="{{username}}"
+                password="{{password}}"
+                ></room-page>
               <!-- <file-page id="file" name="file"
                 janus={{janus}}
                 videoroom={{videoroom}}
@@ -178,13 +182,13 @@
       <template is="dom-if" if="{{room}}" restamp>
         <app-drawer id="devDrawer" swipe-open slot="drawer">
           <work-group id="workgroup"
-            janus={{janus}}
-            videoroom={{videoroom}}
-            developer={{developer}}
+            janus="{{janus}}"
+            videoroom="{{videoroom}}"
+            developer="{{developer}}"
+            developers="[[developers]]"
             room="{{room}}"
-            username={{username}}
-            password={{password}}
-            developers=[[developers]]
+            username="{{username}}"
+            password="{{password}}"
             ></work-group>
         </app-drawer>
       </template>

@@ -150,6 +150,19 @@
         },
       },
 
+      ready: function(){
+        var self = this;
+        if (screenfull.enabled){
+          screenfull.on('change',function(){
+            if (screenfull.isFullscreen){
+              self.mainApp().$$('app-header').hidden = true;
+            }else{
+              self.mainApp().$$('app-header').hidden = false;
+            }
+          });
+        }
+      },
+
       publisherVideoIcon: function(enabled){
         return enabled ? 'av:videocam' : 'av:videocam-off';
       },
@@ -213,6 +226,9 @@
         self.log('onRemovePublisher', self.publisher.display);
         //
         if(self.publisher){
+          if (self.$.container.classList.contains("grown")){
+            self.$.container.classList.remove("grown");
+          }
           if(self.publisher.handle){
             self.publisher.handle.send({
               message: {

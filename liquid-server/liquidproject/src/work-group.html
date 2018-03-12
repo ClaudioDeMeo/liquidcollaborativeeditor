@@ -98,13 +98,13 @@
         <hr>
         <!-- PARTICIPANT LIST AND VIDEO -->
         <sortable-list class="list" dragging="{{dragging}}" sortable=".item">
-          <template id="developers" is="dom-repeat" items=[[developers]] filter="filterRemotePublishers">
+          <template id="developers" is="dom-repeat" items={{developers}} observe="stream videoStream audioStream" filter="filterRemotePublishers">
             <paper-item class="remote-item item">
-              <div class="layout horizontal center wrap">
-                <remote-video-player class="remote" publisher="[[item]]"></remote-video-player>
+              <div class=" layout horizontal center wrap">
+                <remote-video-player id="remotevideo{{index}}" class="remote" publisher="{{item}}"></remote-video-player>
                 <div>
                   <b>[[item.display]]</b>
-                  <iron-icon icon="create" hidden="[[!item.writing]]"></iron-icon>
+                  <iron-icon icon="create" hidden="{{!item.writing}}"></iron-icon>
                 </div>
               </div>
             </paper-item>
@@ -196,7 +196,7 @@
                     request: "joinandconfigure",
                     room: self.room,
                     ptype: 'publisher',
-                    id: self._hashCode(self.username) << 8,
+                    id: (self._hashCode(self.username) << 8) + (self.developer.display[0] << 4) + self.developer.display[1],
                     display: self.username,
                     pin: self.password,
                     data: false,
@@ -355,6 +355,10 @@
         //
         self.set('developer.stream', null);
       },
+
+      _hideElement: function(video,audio){
+        return !(video || audio);
+      }
 
     });
   </script>

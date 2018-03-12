@@ -67,21 +67,18 @@
         overflow: hidden;
       }
 
-      .layout-embed:before {
+      /* .layout-embed:before {
         display: block;
         content: "";
         width: 100%;
-      }
+      } */
 
-      .layout-embed-16by9:before {
-        padding-top: 56.25%;
-      }
 
       .layout-embed-4by3:before {
-        padding-top: 75%;
+        /* padding-top: 75%; */
       }
 
-      .layout-embed > .layout-embed-content {
+      /* .layout-embed > .layout-embed-content {
         background-color: black;
         position: absolute;
         top: 0;
@@ -89,18 +86,18 @@
         right: 0;
         bottom: 0;
         padding: 0;
-      }
+      } */
 
       .grown{
-        --video-player-width: 250px;
-        --video-player-height: 165px;
+        width: 212px !important;
+        height: 159px !important;
       }
 
       #container{
-        width: var(--video-player-width,120px);
-        height: var(--video-player-height,90px);
-        max-width: 220px;
-        max-height: 165px;
+        width: 120px;
+        height: 90px;
+        /* max-width: 220px;
+        max-height: 165px; */
         min-width: 120px;
         min-height: 90px;
         -webkit-transition-property: all 1s ease;
@@ -110,65 +107,41 @@
 
     </style>
     <!-- VIDEO-PLAYER DEFINE -->
-    <div id="container" class="layout-embed layout-embed-4by3" hidden$="[[_hideElement(publisher.videoStream, publisher.audioStream)]]">
-      <div class="layout-embed-content">
-        <!-- <paper-icon-button
-          icon="av:play-circle-outline"
-          class="publisher-button"
-          on-tap="onOpenPublisher"
-          data-id$="[[publisher.id]]"
-          hidden$="[[publisher.handle]]">
-        </paper-icon-button> -->
-        <!-- <paper-icon-button
-          icon="[[publisherVideoIcon(publisher.video)]]"
-          class="publisher-button"
-          on-tap="onHidePublisher"
-          hidden$="[[!_hidePublisherButtonVisible(publisher.video, publisher.videoStream)]]">
-        </paper-icon-button> -->
+    <div id="container" class="layout-embed" hidden="{{_hideElement(publisher.videoStream, publisher.audioStream)}}">
         <video
           id="video"
-          src-object="[[publisher.videoStream]]"
+          src-object="{{publisher.videoStream}}"
           on-tap="toggelGrow"
-          hidden$="[[!publisher.videoStream]]"
+          hidden="{{!publisher.video}}"
           autoplay
           muted>
         </video>
         <audio
           id="audio"
-          src-object="[[publisher.audioStream]]"
-          hidden$="[[!publisher.audioStream]]"
+          src-object="{{publisher.audioStream}}"
+          hidden="{{!publisher.audio}}"
           autoplay>
         </audio>
         <div class="layout horizontal center publisher-top">
-          <b>[[publisher.display]]</b>
-          <iron-icon icon="av:volume-up" hidden$="[[!publisher.talking]]"></iron-icon>
+          <b>{{publisher.display}}</b>
+          <iron-icon icon="av:volume-up" hidden="{{!publisher.talking}}"></iron-icon>
           <span class="flex"></span>
-          <paper-icon-button
-            icon="cancel"
-            on-tap="kickPublisher"
-            hidden$="[[!room.secret]]">
           </paper-icon-button>
           <paper-icon-button
             icon="fullscreen"
             on-tap="toggleFullscreenPublisher"
-            hidden$="[[!publisher.video]]">
+            hidden="{{!publisher.video}}">
           </paper-icon-button>
           <paper-icon-button
-            icon="[[publisherVideoIcon(publisher.video)]]"
+            icon="{{publisherVideoIcon(publisher.video)}}"
             on-tap="onHidePublisher"
-            hidden$="[[!publisher.videoStream]]">
+            hidden="{{!publisher.videoStream}}">
           </paper-icon-button>
           <paper-icon-button
-            icon="[[publisherAudioIcon(publisher.audio)]]"
+            icon="{{publisherAudioIcon(publisher.audio)}}"
             on-tap="onMutePublisher"
-            data-id$="[[publisher.id]]"
-            hidden$="[[!publisher.audioStream]]">
+            hidden="{{!publisher.audioStream}}">
           </paper-icon-button>
-          <!--               <paper-icon-button
-          icon="close"
-          on-tap="onClosePublisher"
-          data-id$="[[item.id]]"
-          hidden$="[[!item.stream]]"></paper-icon-button> -->
         </div>
       </div>
     </div>
@@ -185,11 +158,21 @@
           type: Object,
           value: null,
           notify: true,
-        },
-        room: {
-          type: Object,
-          value: null,
-          notify: true,
+        }
+      },
+
+      ready: function(){
+        var self = this;
+        if (screenfull.enabled){
+          screenfull.on('change',function(){
+            if (screenfull.isFullscreen){
+              self.$.container.style= "width: 100% !important; height: unset !important";
+              self.mainApp().$$('app-header').hidden = true;
+            }else{
+              self.$.container.style = "";
+              self.mainApp().$$('app-header').hidden = false;
+            }
+          });
         }
       },
 
@@ -241,33 +224,12 @@
         });
       },
 
-      kickPublisher: function(){
-        var self = this;
-        self.log('kickPublisher', self.publisher.display);
-        if(self.publisher){
-          self.publisher.handle.send({
-            message: {
-              request: "kick",
-              id: self.publisher.id,
-              room: self.publisher.room._id,
-              secret: self.publisher.room.secret,
-            },
-            success: function(result){
-              self.log('kickPublisher', result);
-            },
-            error: function(err){
-              console.error("kickPublisher error:", err);
-            }
-          });
-        }
-      },
-
       toggleFullscreenPublisher: function(){
         var self = this;
         self.log('toggleFullscreenPublisher', self.publisher.display);
         if(self.publisher){
           if(screenfull.enabled){
-            screenfull.toggle(self.$.video);
+            screenfull.toggle(self.$.container);
           }
         }
       },

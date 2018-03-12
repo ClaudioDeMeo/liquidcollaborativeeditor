@@ -298,7 +298,6 @@
 
         //
         self.splice('developers', index, 1);
-        self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
       },
 
       addDeveloper: function(id, display, talking){
@@ -334,7 +333,7 @@
 
         //
         self.push('developers', developer);
-        self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
+
         // auto open remote publishers
         // if(!isMobile.any){
           setTimeout(function(){
@@ -454,14 +453,12 @@
             }
 
             self.set('developers.' + index + '.stream', stream);
-            self.mainApp().$$("#workgroup").set('developers.' + index + '.stream', stream);
 
             var videoTracks = stream.getVideoTracks();
             if(videoTracks.length > 0){
               var videoStream = new MediaStream;
               videoStream.addTrack(videoTracks[0]);
               self.set('developers.' + index + '.videoStream', videoStream);
-              self.mainApp().$$("#workgroup").set('developers.' + index + '.videoStream', videoStream);
             }
 
             var audioTracks = stream.getAudioTracks();
@@ -469,10 +466,7 @@
               var audioStream = new MediaStream;
               audioStream.addTrack(audioTracks[0]);
               self.set('developers.' + index + '.audioStream', audioStream);
-              self.mainApp().$$("#workgroup").set('developers.' + index + '.audioStream', audioStream);
             }
-
-            self.mainApp().$$("#workgroup") && self.mainApp().$$("#workgroup").$.developers.render();
           },
           detached: function() {
             self.log('openRemotePublisher detached');

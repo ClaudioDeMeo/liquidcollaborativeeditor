@@ -68,6 +68,16 @@ app.post('/list/:room', function(req,res){
   }
 });
 
+app.get('/info/:fid', function(req, res){
+  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  if (flist[req.params.fid]){
+    res.json(flist[req.params.fid]);
+  }else{
+    res.status(404);
+    res.end();
+  }
+});
+
 //download a file
 app.post('/download/:fid', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());

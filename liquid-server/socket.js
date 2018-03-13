@@ -109,14 +109,14 @@ module.exports = function(server){
       }
     });
 
-    // socket.on('changeLanguage',function(data){
-    //   if (flist[socket.room]){
-    //     console.log(data);
-    //     flist[socket.room].language = data.newLanguage;
-    //     fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
-    //     socket.broadcast.to(socket.room).emit('changeLanguage', data);
-    //   }
-    // });
+    socket.on('changeLanguage',function(data){
+      if (flist[socket.room]){
+        console.log(data);
+        flist[socket.room].language = data.newLanguage;
+        fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+        socket.broadcast.to(socket.room).emit('changeLanguage', data);
+      }
+    });
     //get file
     // socketStream(socket).on('getfile', function(stream,fid){
     //   if (flist[fid]){

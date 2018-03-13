@@ -1,0 +1,251 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/social-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/av-icons.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+
+<script src="../../bower_components/screenfull/dist/screenfull.min.js" type="text/javascript"></script>
+
+<link rel="import" href="../base/utils-behavior.html">
+
+
+<dom-module id="remote-video-player">
+  <template>
+    <style include="shared-styles">
+
+      video{
+        width: 100%;
+        height: 100%;
+      }
+
+      .publisher-top{
+        color: var(--secondary-text-color);
+        background-color: black;
+        opacity: 0.5;
+        position: absolute;
+        width: 100%;
+        height: 32px;
+        top: 0px;
+        left: 0;
+        right: 0;
+        padding: 0;
+        margin: 0;
+        -webkit-transition: top 0.4s;
+        transition: top 0.4s;
+      }
+
+      .publisher-top > b{
+        padding: 0 0 0 4px;
+        opacity: 0.7;
+      }
+
+      .publisher-top > paper-icon-button,
+      .publisher-top > iron-icon{
+        color: var(--secondary-text-color);
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        margin: 2px;
+        opacity: 0.7;
+      }
+
+      .publisher-button{
+        width: 100%;
+        height: 100%;
+        color: var(--secondary-text-color);
+        background-color: black;
+        padding: 20%;
+        margin: 0;
+      }
+
+      .layout-embed{
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* .layout-embed:before {
+        display: block;
+        content: "";
+        width: 100%;
+      } */
+
+
+      .layout-embed-4by3:before {
+        /* padding-top: 75%; */
+      }
+
+      /* .layout-embed > .layout-embed-content {
+        background-color: black;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0;
+      } */
+
+      .grown{
+        width: 212px !important;
+        height: 159px !important;
+      }
+
+      #container{
+        width: 120px;
+        height: 90px;
+        /* max-width: 220px;
+        max-height: 165px; */
+        min-width: 120px;
+        min-height: 90px;
+        -webkit-transition-property: all 1s ease;
+        -moz-transition-property: all 1s ease;
+        transition: all 1s ease;
+      }
+
+    </style>
+    <!-- VIDEO-PLAYER DEFINE -->
+    <div id="container" class="layout-embed" hidden="{{_hideElement(publisher.videoStream, publisher.audioStream)}}">
+        <video
+          id="video"
+          src-object="{{publisher.videoStream}}"
+          on-tap="toggelGrow"
+          hidden="{{!publisher.video}}"
+          autoplay
+          muted>
+        </video>
+        <audio
+          id="audio"
+          src-object="{{publisher.audioStream}}"
+          hidden="{{!publisher.audio}}"
+          autoplay>
+        </audio>
+        <div class="layout horizontal center publisher-top">
+          <b>{{publisher.display}}</b>
+          <iron-icon icon="av:volume-up" hidden="{{!publisher.talking}}"></iron-icon>
+          <span class="flex"></span>
+          </paper-icon-button>
+          <paper-icon-button
+            icon="fullscreen"
+            on-tap="toggleFullscreenPublisher"
+            hidden="{{!publisher.video}}">
+          </paper-icon-button>
+          <paper-icon-button
+            icon="{{publisherVideoIcon(publisher.video)}}"
+            on-tap="onHidePublisher"
+            hidden="{{!publisher.videoStream}}">
+          </paper-icon-button>
+          <paper-icon-button
+            icon="{{publisherAudioIcon(publisher.audio)}}"
+            on-tap="onMutePublisher"
+            hidden="{{!publisher.audioStream}}">
+          </paper-icon-button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    Polymer({
+      is:'remote-video-player',
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+      properties: {
+        publisher: {
+          type: Object,
+          value: null,
+          notify: true,
+        }
+      },
+
+      ready: function(){
+        var self = this;
+        if (screenfull.enabled){
+          screenfull.on('change',function(){
+            if (screenfull.isFullscreen){
+              self.$.container.style= "width: 100% !important; height: unset !important";
+              self.mainApp().$$('app-header').hidden = true;
+            }else{
+              self.$.container.style = "";
+              self.mainApp().$$('app-header').hidden = false;
+            }
+          });
+        }
+      },
+
+      publisherVideoIcon: function(enabled){
+        return enabled ? 'av:videocam' : 'av:videocam-off';
+      },
+
+      publisherAudioIcon: function(enabled){
+        return enabled ? 'av:mic' : 'av:mic-off';
+      },
+
+      onHidePublisher: function(){
+        var self = this;
+        self.log('onHidePublisher', self.publisher.display);
+        if(self.publisher){
+          self.set('publisher.video', !self.publisher.video);
+          self.configurePublisher(self.publisher);
+        }
+      },
+
+      onMutePublisher: function(){
+        var self = this;
+        self.log('onMutePublisher', self.publisher.display);
+        if(self.publisher){
+          self.set('publisher.audio', !self.publisher.audio);
+          self.configurePublisher(self.publisher);
+        }
+      },
+
+      configurePublisher: function(publisher){
+        var self = this;
+        if(!publisher){
+          return;
+        }
+        self.log('configurePublisher', publisher);
+        //
+        publisher.handle.send({
+          message: {
+            request: "configure",
+            audio: publisher.audio,
+            video: publisher.video,
+          },
+          success: function(result){
+            self.log('configurePublisher', result);
+          },
+          error: function(err){
+            console.error("configurePublisher error:", err);
+          }
+        });
+      },
+
+      toggleFullscreenPublisher: function(){
+        var self = this;
+        self.log('toggleFullscreenPublisher', self.publisher.display);
+        if(self.publisher){
+          if(screenfull.enabled){
+            screenfull.toggle(self.$.container);
+          }
+        }
+      },
+
+      toggelGrow: function(){
+        var self=this;
+        self.$.container.classList.toggle("grown");
+      },
+
+      _hidePublisherButtonVisible: function(video, videoStream){
+        return !video && videoStream;
+      },
+
+      _hideElement: function(video,audio){
+        return !(video || audio);
+      }
+    });
+  </script>
+</dom-module>

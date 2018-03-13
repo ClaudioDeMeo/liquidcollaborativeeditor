@@ -88,6 +88,18 @@
         return hash;
       },
 
+      getCookie: function(key){
+        var cookies = decodeURIComponent(document.cookie).split(";");
+        var cookie = cookies.find(function(element){
+          return element.indexOf(key + "=") != -1;
+        });
+        if(cookie===undefined){
+          return "";
+        }else{
+          return cookie.substring(cookie.indexOf("=") + 1);
+        }
+      },
+
       createSession: function(){
         var self = this;
         if (!self.janus){
@@ -165,7 +177,7 @@
             }
 
             if(msg.error){
-              self.error(msg.error);
+              self.log(msg.error);
               self.show_error(msg.error);
               self.reset();
               return;

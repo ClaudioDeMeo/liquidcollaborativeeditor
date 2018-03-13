@@ -81,7 +81,7 @@
             <span>Room: {{roomcandidate}}</span>
             <span class="flex"></span>
             <paper-icon-button icon="arrow-back" onclick="window.location.replace('/')"></paper-icon-button>
-            <paper-icon-button icon="exit-to-app" title="exit" onclick="window.location.reload()" hidden="{{!room}}"></paper-icon-button>
+            <paper-icon-button icon="exit-to-app" title="exit" on-tap="exitRoom" hidden="{{!room}}"></paper-icon-button>
           </div>
         </div>
 
@@ -115,7 +115,7 @@
               Join
             </paper-button>
           </div>
-          
+
           <!-- ROOM FILE LIST -->
           <template is="dom-if" if="{{room}}" restamp>
             <template is="dom-repeat" items="[[flist]]">
@@ -221,6 +221,14 @@
         }
         //
         checkRoom();
+        var room = self.getCookie("room");
+        var username = self.getCookie("username");
+        var password =  self.getCookie("password");
+        if (room == self.roomcandidate && username != ""){
+          self.username = username;
+          self.password = password;
+          self.start();
+        }
       },
 
       _checkUserInput: function(e){
@@ -266,6 +274,9 @@
                 jsep: jsep,
                 success: function(result){
                   self.log('join success', result);
+                  document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+                  document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+                  document.cookie = "room=" + self.roomcandidate + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
                   self.refreshFileListInterval = setInterval(function(){
                     self.getFileList(self.room);
                   },2000);
@@ -280,24 +291,6 @@
               self.log("publish error:", error);
             }
           });
-          // self.videoroom.send({
-          //   message: {
-          //     request: "join",
-          //     room: parseInt(self.roomcandidate),
-          //     ptype: 'publisher',
-          //     display: self.username,
-          //     pin: self.password,
-          //   },
-          //   success: function(result){
-          //     self.log('join success', result);
-          //     self.refreshFileListInterval = setInterval(function(){
-          //       self.getFileList(self.room);
-          //     },2000);
-          //   },
-          //   error: function(err){
-          //     console.error("join error:", err);
-          //   }
-          // });
         },200);
       },
 
@@ -377,6 +370,13 @@
         });
         //
         self.room = null;
+        window.location.reload();
+      },
+
+      exitRoom: function(){
+        document.cookie = 'username=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+        document.cookie = 'password=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+        document.cookie = 'room=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
         window.location.reload();
       },
 

@@ -1,0 +1,645 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/app-layout/app-header-layout/app-header-layout.html">
+<link rel="import" href="../bower_components/app-layout/app-header/app-header.html">
+<link rel="import" href="../bower_components/app-layout/app-toolbar/app-toolbar.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/app-route/app-location.html">
+<link rel="import" href="../bower_components/paper-dropdown-input/paper-dropdown-input.html">
+<link rel="import" href="../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/iron-icons/editor-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/iron-ajax/iron-request.html">
+
+<link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
+<link rel="import" href="base/utils-behavior.html">
+
+<dom-module id="file-page">
+  <template>
+    <style include="shared-styles">
+
+      juicy-ace-editor {
+        width: 100%;
+        height: 100%;
+      }
+
+      p {
+        font-family: Roboto;
+        margin-bottom: 0;
+      }
+      paper-dropdown-input {
+        width: 175px;
+        top:-1px;
+        --paper-input-container-input-color: white;
+        --paper-listbox-background-color: white;
+        margin: 0 2px 0 2px;
+      }
+      paper-dropdown-input p {
+        color: gray;
+        margin: .5em;
+        font-size: .7em;
+      }
+
+      paper-dropdown-input > [warning]p{
+          font-size: .7em
+      }
+
+      paper-dropdown-input hr {
+        margin-top: .5em;
+        margin-bottom: .7em;
+      }
+
+      app-toolbar {
+        height: 48px;
+        background-color: var(--primary-background-color);
+        color: var(--primary-text-color);
+        padding: 0px;
+      }
+
+      #fontSize, #tabSpace {
+        position: relative;
+        top: -4px;
+        width: 100px;
+        min-width: 100px;
+      }
+
+      .editorMenu {
+        margin: 0 2px 0 2px;
+        min-width: 100px;
+      }
+
+      .toolbarBtn{
+        background-color: var(--primary-background-color);
+        color: var(--primary-text-color);
+        margin-top: 8px;
+      }
+
+    </style>
+
+    <app-location
+        route="{{route}}"
+        url-space-regex="^[[rootPath]]">
+    </app-location>
+
+    <app-header-layout has-scrolling-region>
+      <!-- TOOLBAR -->
+      <app-header slot="header">
+        <app-toolbar>
+          <paper-icon-button class="toolbarBtn"
+          icon="arrow-back"
+          on-tap="goBack"
+          title="go back"></paper-icon-button>
+          <a id="back" hidden href="[[rootPath]]room/[[room]]"></a>
+          <paper-icon-button id="downloadBtn"
+          class="toolbarBtn"
+          icon="file-download"
+          title="download file"
+          fname="{{file.name}}"
+          on-tap="onDownloadFile"
+          disabled>
+          </paper-icon-button>
+          <paper-dropdown-input id="themeSelector"
+            class="editorMenu"
+            label="Theme"
+            notfoundmessage="Theme not found"
+            items="{{theme}}"
+            value="{{selectedTheme}}">
+            <template>
+              <p disabled>Bright</p>
+              <template is="dom-repeat" items="[[_getBrightTheme(items)]]" as="item">
+                <paper-item>[[item]]</paper-item>
+              </template>
+              <hr disabled>
+              <p disabled>Dark</p>
+              <template is="dom-repeat" items="[[_getDarkTheme(items)]]" as="item">
+                <paper-item>[[item]]</paper-item>
+              </template>
+            </template>
+          </paper-dropdown-input>
+
+          <paper-input class="editorMenu"
+            id="fontSize"
+
+            name="fontsizeInput"
+            type="number"
+            placeholder="Font Size"
+            min="10"
+            max="250"
+            value="{{fontSize}}"><!-- label="Font Size" -->
+            <iron-icon icon="editor:format-size" slot="prefix"></iron-icon>
+            <div slot="suffix">px</div>
+          </paper-input>
+          <paper-input class="editorMenu"
+            id="tabSpace"
+
+            name="tabSpaceInput"
+            type="number"
+            placeholder="Tab Size"
+            min="1"
+            max="10"
+            value="{{tabSize}}"><!-- label="Tab Space" -->
+            <iron-icon icon="editor:format-indent-increase" slot="prefix"></iron-icon>
+          </paper-input>
+          <span class="flex"></span>
+
+          <paper-dropdown-input id="languageSelector" class="editorMenu"
+            label="Language"
+            horizontal-align="right"
+            notfoundmessage="Language not found"
+            items="{{language}}"
+            max-size=150
+            value="{{selectedLanguage}}">
+          </paper-dropdown-input>
+
+          <paper-icon-button class="toolbarBtn"
+          icon="exit-to-app"
+          title="exit"
+          on-tap="exitRoom">
+          </paper-icon-button>
+        </app-toolbar>
+      </app-header>
+      <!-- CODE-EDITOR DEFINE -->
+      <juicy-ace-editor id="textEditor"
+        theme$="ace/theme/{{selectedTheme}}"
+        mode$="ace/mode/{{selectedLanguage}}"
+        fontsize$="{{fontSize}}px"
+        tabsize$="{{tabSize}}"
+        wrapmode="true"
+        readonly>
+      </juicy-ace-editor>
+    </app-header-layout>
+
+  </template>
+  <script type = "text/javascript" src = "base/config-editor.js"></script>
+  <script type = "text/jabascript" src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.slim.js"></script>
+  <script>
+
+    //data on editor changed event callback
+    function _onDataChanged(e){
+      var self = document.querySelector('my-liquid-app').$$('file-page');
+      var data = {
+        author : self.socket.id,
+        action : e.action,
+        timestamp : Date.now(),
+        text : e.lines.join('\n'),
+        position : {
+          start : self.$.textEditor.editor.session.doc.positionToIndex({
+            row : e.start.row,
+            column : e.start.column
+          }),
+          end : undefined,
+        },
+        lastRevision : self.revision,
+      };
+      data.position.end = data.position.start + data.text.length;
+      if (self.socket.connected){
+        if (self.toVerify){
+          self.push('toSend',data);
+        }else{
+          self.socket.emit('data',data);
+          self.set('toVerify',data);
+        }
+      }else{
+        var range = {
+          start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+          end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+        };
+        _remove(range);
+      }
+    }
+
+    //utils function to insert in editor
+    function _insert(position,text){
+      var self = document.querySelector('my-liquid-app').$.codeEditor;
+      self.$.textEditor.editor.removeAllListeners('change');
+      self.$.textEditor.editor.session.insert(position,text);
+      self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
+    }
+
+    //utils function to remove in editor
+    function _remove(range){
+      var self = document.querySelector('my-liquid-app').$.codeEditor;
+      self.$.textEditor.editor.removeAllListeners('change');
+      self.$.textEditor.editor.session.remove(range);
+      self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
+    }
+
+    Polymer({
+      is:'file-page',
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+      properties: {
+        socket: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        revision: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
+        lastTimestamp: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
+        toVerify: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        toSend: {
+          type: Array,
+          value: function(){ return [] },
+          notify: true,
+        },
+        remoteBuffer: {
+          type: Array,
+          value: function(){ return [] },
+          notify: true,
+        },
+        language: {
+          type: Array,
+          value: editor.LANGUAGE,
+          notify: true,
+        },
+        selectedLanguage: {
+          type: String,
+          value: 'html',
+          notify: true,
+          observer: '_languageObserver',
+        },
+        theme: {
+          type: Array,
+          value: editor.THEME,
+          notify: true,
+        },
+        selectedTheme: {
+          type: String,
+          value: 'monokai',
+          notify: true,
+        },
+        fontSize: {
+          type: Number,
+          value: 15,
+          notify: true,
+        },
+        tabSize: {
+          type: Number,
+          value: 2,
+          notify: true,
+        },
+      },
+
+      observers: [
+        'filechanged(file)'
+      ],
+
+      ready: function() {
+        var self = this;
+        self.$.textEditor.editor.$blockScrolling = Infinity;
+        if (self.username == ""){
+          self.username = self.getCookie("username");
+          if (self.username == ""){
+            self.file = true;
+            window.location.replace("/");
+            return;
+          }else{
+            self.password = self.getCookie("password");
+          }
+        }
+        if (!self.room){
+          var fid = self.route.path.substring(self.route.path.lastIndexOf('/') + 1);
+          self.request('/info/' + fid, 'GET')
+            .then(function(ret){
+              if (ret.status == 404){
+                self.show_error("File not found");
+                return;
+              }else{
+                self.joinRoom(ret.response.room, function(result){
+                  self.file = ret.response;
+                  document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+                  document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+                  document.cookie = "room=" + ret.response.room + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+                }, function(err){
+                  self.file = true;
+                  self.show_error(err);
+                });
+              }
+            })
+            .catch(function(error){
+              self.file = true;
+              self.show_error(error);
+            });
+        }
+      },
+
+      joinRoom: function(room, onSuccess, onError){
+        var self = this;
+        if (!self.janus){
+          self.createSession();
+        }
+        setTimeout(function(){
+          self.videoroom.createOffer({
+            media: {
+              video: false,
+              audio: false,
+              videoSend: false,
+              audioSend: false,
+              data: true,
+            },
+            success: function(jsep){
+              self.videoroom.send({
+                message: {
+                  request: "joinandconfigure",
+                  room: parseInt(room),
+                  ptype: 'publisher',
+                  display: self.username,
+                  id: (self._hashCode(self.username) << 8) + 0xFF,
+                  pin: self.password,
+                  video: false,
+                  audio: false,
+                  videoSend: false,
+                  audioSend: false,
+                  videoRecv: false,
+                  audioRecv: false,
+                  data: true,
+                },
+                jsep: jsep,
+                success: function(result){
+                  self.log('join success', result);
+                  onSuccess && onSuccess(result);
+                },
+                error: function(err){
+                  console.error("join error:", err);
+                  onError && onError(err);
+                }
+              });
+              self.log("publish request sent");
+            },
+            error: function(error){
+              self.log("publish error:", error);
+              onError && onError(error);
+            }
+          });
+        },200);
+      },
+
+      initialization: function(){
+        var self = this;
+        self.$.textEditor.editor.removeAllListeners('change');
+        self.$.textEditor.value = "";
+        self.remoteBuffer = [];
+        self.toVerify = null;
+        self.toSend = null;
+        self.lastTimestamp = 0;
+        self.revision = -1;
+        self.socket && self.socket.close();
+        self.socket = null;
+        self.toVerify = null;
+        self.file = null;
+      },
+
+      goBack: function(){
+        var self = this;
+        self.initialization();
+        self.$.back.click();
+      },
+
+      exitRoom:function(){
+        var self = this;
+        self.initialization();
+        var roomCandidate = self.room;
+        self.room = null;
+        self.file = true;
+        window.location.replace("/room/" + roomCandidate);
+      },
+
+      initSocket: function(){
+        var self = this;
+        //init socket
+        self.socket = io(socketServer);
+        self.socket.on('disconnect',function(e){
+          self.log(e);
+          self.$.textEditor.setAttribute('readonly',true);
+          self.socket.accidentalDisconnect = true;
+        });
+
+        self.socket.on('connect',function(){
+          self.socket.emit('ready',{fid: self.file.fid});
+          if (self.socket.accidentalDisconnect){
+            self.$.textEditor.removeAttribute("readonly");
+            self.socket.accidentalDisconnect = false;
+            self.socket.emit('history',{revision : self.revision});
+          }
+        });
+
+        self.socket.on('ok',function(msg){
+          self.revision = msg.revision;
+          self.socket.emit('history',{revision : self.revision});
+        });
+
+        //someone change language
+        // self.socket.on('changeLanguage',function(data){
+        //   self.socket.isChangeLanguage = true;
+        //   self.set('selectedLanguage', data.newLanguage);
+        // });
+
+        //operation came from server
+        self.socket.on('data', function(data){
+          if (!self.$.textEditor.editor.getReadOnly()){
+            if (data.author != self.socket.id && data.timestamp!=self.lastTimestamp){
+              self.set('revision',data.lastRevision);
+              self.set('lastTimestamp',data.timestamp);
+              switch (data.action){
+                case 'insert':
+                  var start= data.position.start;
+                  var end= data.position.end;
+                  if (self.toVerify && self.toVerify.position.start <= data.position.start){
+                    switch (self.toVerify.action) {
+                      case "insert":
+                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                      case "remove":
+                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                    }
+                  }
+                  // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(start),data.text);
+                  break;
+                case 'remove':
+                  var start= data.position.start;
+                  var end= data.position.end;
+                  if (self.toVerify && self.toVerify.position.start <= data.position.start){
+                    switch (self.toVerify.action) {
+                      case "insert":
+                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                      case "remove":
+                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        break;
+                    }
+                  }
+                  // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
+                  var range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+                  }
+                  _remove(range);
+                  break;
+              }
+              self.toSend.forEach(function(element,index){
+                self.toSend[index].lastRevision = self.revision;
+                if (data.position.start <= element.position.start){
+                  switch (data.action) {
+                    case "insert":
+                      self.toSend[index].position.start += data.position.end - data.position.start;
+                      self.toSend[index].position.end += data.position.end - data.position.start;
+                      break;
+                    case "remove":
+                      self.toSend[index].position.start -= data.position.end - data.position.start;
+                      self.toSend[index].position.end -= data.position.end - data.position.start;
+                      break;
+                  }
+                }
+              });
+            }
+          }else{
+            self.push('remoteBuffer',data);
+          }
+        });
+
+        //someone has deleted the file
+        self.socket.on('fileNotFound', function(error){
+          self.goBack();
+        });
+
+        //feedback on data send
+        self.socket.on('feedback', function(data){
+          if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp){
+            self.set('revision',data.lastRevision);
+            if (self.toSend.length > 0){
+              var dataToSend = self.toSend.shift();
+              dataToSend.lastRevision = self.revision;
+              self.socket.emit('data', dataToSend);
+              self.set('toVerify',dataToSend);
+            }else{
+              self.toVerify = null;
+            }
+          }else{  //ERROR Inconsistency of data
+            self.goBack();
+          }
+        });
+      },
+
+      filechanged: function(oldVal,newVal){
+        var self = this;
+        if (self.file && self.username != ""){
+          self.$.textEditor.value = "";
+          self.initSocket();
+          self.set('selectedLanguage', self.file.language);
+          self.$.languageSelector.value = self.selectedLanguage;
+          self.$.themeSelector.value = self.selectedTheme;
+          self.loadFile(function(blob){
+            var reader = new FileReader();
+            reader.addEventListener("loadend", function(e) {
+              self.$.textEditor.editor.insert(e.currentTarget.result);
+              self.$.textEditor.editor.on('change',_onDataChanged);
+              self.$.textEditor.removeAttribute("readonly");
+              while(self.remoteBuffer.length > 0){
+                var data = self.remoteBuffer.shift();
+                switch (data.action){
+                  case 'insert':
+                    _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
+                    break;
+                  case 'remove':
+                    var range = {
+                      start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                      end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                    };
+                    _remove(range);
+                    break;
+                }
+              }
+            });
+            reader.readAsText(blob);
+          });
+        }
+      },
+
+      _languageObserver: function(){
+        var self = this;
+        // self.$.languageSelector.value = self.selectedLanguage;
+        if (self.socket && !self.socket.isChangeLanguage){
+          // self.file.language = self.selectedLanguage;
+          self.socket.emit('changeLanguage', {newLanguage: self.selectedLanguage});
+        }else if (self.socket && self.socket.isChangeLanguage){
+          self.socket.isChangeLanguage = false;
+        }
+      },
+
+      loadFile: function(cb){
+        var self = this;
+        var request = new XMLHttpRequest();
+        request.onload = function(e){
+          switch (this.status){
+            case 200:
+              self.$.downloadBtn.disabled = false;
+              cb && cb(new Blob([this.response], {type: 'text/plain'}));
+              break;
+              case 500:
+                self.log("download error");
+                break;
+              case 404:
+                self.show_error("File " + fname + " not found");
+                break;
+              case 401:
+                self.log("Unauthorized");
+                break;
+          }
+        };
+        request.error = function(error){
+          self.log("downloadFile error: ",error);
+        };
+        request.open('POST','/download/' + self.file.fid, true);
+        request.responseType = 'blob';
+        request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        request.send(JSON.stringify({password: self.password}));
+      },
+
+      onDownloadFile: function(e){
+        var self = this;
+        var fname = e.currentTarget.fname;
+        var a = document.createElement("a");
+        a.style = "display: none";
+        var blob = new Blob([self.$.textEditor.editor.getValue()], {type: 'text/plain'});
+        var url = window.URL.createObjectURL(blob);
+        a.href = url;
+        a.download = fname;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+
+      _getBrightTheme: function(theme){
+        return theme.slice(0,15);
+      },
+
+      _getDarkTheme: function(theme){
+        return theme.slice(15)
+      },
+
+    });
+  </script>
+</dom-module>

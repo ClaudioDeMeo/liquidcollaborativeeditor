@@ -1,3 +1,4 @@
+const debug = require('debug')('server');
 const config = require('./config');
 const fs = require('fs');
 const formidable = require('formidable');
@@ -13,7 +14,7 @@ var randomstring = require("randomstring");
 // const spawn = require('child_process').spawn;
 // var janus = spawn('janus');
 // janus.stdout.on('data', (data) => {
-//   console.log(`${data}`);
+//   debug(`${data}`);
 // });
 
 //server
@@ -28,6 +29,7 @@ if (config.PROTOCOL == 'https'){
   http = require('http');
   server = http.createServer(app).listen(port);
 }
+debug("create server:", config.PROTOCOL);
 
 function auth(room,password){
   var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
@@ -36,7 +38,7 @@ function auth(room,password){
 
 //real-time comunication
 require('./socket')(server);
-console.log('server listen on port ' + port);
+console.log('server ' + config.PROTOCOL + ' listen on port ' + port);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -83,7 +85,7 @@ app.post('/download/:fid', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fid = req.params.fid;
   if (flist[fid]){
-    console.log("room:",flist[fid].room,"password:",req.body.password);
+    debug("room:",flist[fid].room,"password:",req.body.password);
     if (auth(flist[fid].room,req.body.password)){
       var fpath = path.join(prefix,flist[fid].room,flist[fid].name);
       if (!fs.existsSync(fpath)){

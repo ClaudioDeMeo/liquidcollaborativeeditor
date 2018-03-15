@@ -220,14 +220,18 @@
           }
         }
         //
-        checkRoom();
+        if (self.roomcandidate){
+          checkRoom();
+        }
         var room = self.getCookie("room");
         var username = self.getCookie("username");
         var password =  self.getCookie("password");
-        if (room == self.roomcandidate && username != ""){
+        if (!self.room && self.username == "" && room == self.roomcandidate && username != ""){
           self.username = username;
           self.password = password;
           self.start();
+        }else if (self.room && self.username != ""){
+          self.getFileList(self.room);
         }
       },
 
@@ -242,56 +246,14 @@
 
       start: function(e){
         var self = this;
-        if (!self.janus){
-          self.createSession();
-        }
-        setTimeout(function(){
-          self.videoroom.createOffer({
-            media: {
-              video: false,
-              audio: false,
-              videoSend: false,
-              audioSend: false,
-              data: true,
-            },
-            success: function(jsep){
-              self.videoroom.send({
-                message: {
-                  request: "joinandconfigure",
-                  room: parseInt(self.roomcandidate),
-                  ptype: 'publisher',
-                  display: self.username,
-                  id: (self._hashCode(self.username) << 8) + 0xFF,
-                  pin: self.password,
-                  video: false,
-                  audio: false,
-                  videoSend: false,
-                  audioSend: false,
-                  videoRecv: false,
-                  audioRecv: false,
-                  data: true,
-                },
-                jsep: jsep,
-                success: function(result){
-                  self.log('join success', result);
-                  document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-                  document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-                  document.cookie = "room=" + self.roomcandidate + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-                  self.refreshFileListInterval = setInterval(function(){
-                    self.getFileList(self.room);
-                  },2000);
-                },
-                error: function(err){
-                  console.error("join error:", err);
-                }
-              });
-              self.log("publish request sent");
-            },
-            error: function(error){
-              self.log("publish error:", error);
-            }
-          });
-        },200);
+        self.joinRoom(self.roomcandidate, self.username, self.password, function(result){
+          document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          document.cookie = "room=" + self.roomcandidate + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          self.refreshFileListInterval = setInterval(function(){
+            self.getFileList(self.room);
+          },2000);
+        });
       },
 
       getFileList: function(room){
@@ -362,6 +324,9 @@
           success: function(result){
             self.log("room " + self.room + " destroyed!");
             self.room = null;
+            document.cookie = 'username=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+            document.cookie = 'password=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+            document.cookie = 'room=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
             //
             window.location.reload();
           },error:function(cause){

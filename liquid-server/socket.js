@@ -1,3 +1,4 @@
+const debug = require('debug')('server:socket');
 const fs = require('fs');
 const config = require('./config');
 const prefix = config.PROJECTFOLDER;
@@ -58,7 +59,7 @@ module.exports = function(server){
   // io.use(p2p);
   io.on('connection', function(socket){
     var fpath = null;
-    console.log("new client: " + socket.id);
+    debug("new client: " + socket.id);
 
     //utils function
     // function getFile(fid){
@@ -77,19 +78,20 @@ module.exports = function(server){
     socket.on('ready', function(msg){
       socket.join(msg.fid);
       socket.room = msg.fid;
+      socket.username = msg.username
       if (flist[socket.room] && fhistory[socket.room]){
         fpath = path.join(prefix,flist[socket.room].room,flist[socket.room].name);
-        console.log('new participant: %s in room: %s request file: %s',socket.id,socket.room,fpath);
+        debug('new participant: %s (id %s) in room: %s request file: %s',socket.username,socket.id,socket.room,fpath);
         socket.emit('ok',{revision: fhistory[socket.room].buffer.length})
       }else{
-        console.log("ready: file not found");
+        debug("ready: file " + socket.room +  " not found");
         socket.emit('fileNotFound', {error: 'file not found'});
       }
 
     });
 
     socket.on('disconnect',function(e){
-      console.log('participant: %s disconnect because: %s',socket.id,e);
+      debug('participant: %s disconnect because: %s',socket.id,e);
       if(!io.sockets.adapter.rooms[socket.room]){
         fhistory[socket.room] = {
           buffer : [],
@@ -104,14 +106,14 @@ module.exports = function(server){
           socket.emit('data', fhistory[socket.room].buffer[i]);
         }
       }else{
-        console.log('history: file not found');
+        debug('history: file not found');
         socket.emit('fileNotFound', {error: 'file not found'});
       }
     });
 
     socket.on('changeLanguage',function(data){
       if (flist[socket.room]){
-        console.log(data);
+        debug('changeLanguage',data);
         flist[socket.room].language = data.newLanguage;
         fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
         socket.broadcast.to(socket.room).emit('changeLanguage', data);
@@ -126,7 +128,7 @@ module.exports = function(server){
 
     //new data from client
     socket.on('data', function(data){
-      console.log("data-in:",data);
+      debug("data-in:",data);
       if (fs.existsSync(fpath) && fhistory[socket.room]){
         for (let i = data.lastRevision + 1; i< fhistory[socket.room].buffer.length; i++){
           var element = fhistory[socket.room].buffer[i];
@@ -145,7 +147,7 @@ module.exports = function(server){
         }
         data.lastRevision = fhistory[socket.room].buffer.length;
         //
-        console.log("data-out:",data);
+        debug("data-out:",data);
         socket.emit('feedback',data);
         socket.broadcast.to(socket.room).emit('data', data);
         fhistory[socket.room].buffer.push(data);
@@ -175,7 +177,7 @@ module.exports = function(server){
         //   fhistory[socket.room].buffer.shift();
         // }
       }else{
-        console.log("data: file not found");
+        debug("data: file not found");
         socket.emit('fileNotFound', {error: 'file not found'});
         if (fhistory[socket.room]){
           delete fhistory[socket.room];

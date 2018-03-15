@@ -323,8 +323,10 @@
                 self.show_error("File not found");
                 return;
               }else{
-                self.joinRoom(ret.response.room, function(result){
-                  self.file = ret.response;
+                self.joinRoom(ret.response.room, self.username, self.password, function(result){
+                  var file = ret.response;
+                  file.fid = fid;
+                  self.set('file', file);
                   document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
                   document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
                   document.cookie = "room=" + ret.response.room + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
@@ -339,57 +341,6 @@
               self.show_error(error);
             });
         }
-      },
-
-      joinRoom: function(room, onSuccess, onError){
-        var self = this;
-        if (!self.janus){
-          self.createSession();
-        }
-        setTimeout(function(){
-          self.videoroom.createOffer({
-            media: {
-              video: false,
-              audio: false,
-              videoSend: false,
-              audioSend: false,
-              data: true,
-            },
-            success: function(jsep){
-              self.videoroom.send({
-                message: {
-                  request: "joinandconfigure",
-                  room: parseInt(room),
-                  ptype: 'publisher',
-                  display: self.username,
-                  id: (self._hashCode(self.username) << 8) + 0xFF,
-                  pin: self.password,
-                  video: false,
-                  audio: false,
-                  videoSend: false,
-                  audioSend: false,
-                  videoRecv: false,
-                  audioRecv: false,
-                  data: true,
-                },
-                jsep: jsep,
-                success: function(result){
-                  self.log('join success', result);
-                  onSuccess && onSuccess(result);
-                },
-                error: function(err){
-                  console.error("join error:", err);
-                  onError && onError(err);
-                }
-              });
-              self.log("publish request sent");
-            },
-            error: function(error){
-              self.log("publish error:", error);
-              onError && onError(error);
-            }
-          });
-        },200);
       },
 
       initialization: function(){
@@ -419,6 +370,9 @@
         var roomCandidate = self.room;
         self.room = null;
         self.file = true;
+        document.cookie = 'username=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+        document.cookie = 'password=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
+        document.cookie = 'room=;expires=' + new Date(new Date().getTime() - 1000*60*60*24).toGMTString() + ";path=/;";
         window.location.replace("/room/" + roomCandidate);
       },
 
@@ -433,7 +387,7 @@
         });
 
         self.socket.on('connect',function(){
-          self.socket.emit('ready',{fid: self.file.fid});
+          self.socket.emit('ready',{fid: self.file.fid, username: self.username});
           if (self.socket.accidentalDisconnect){
             self.$.textEditor.removeAttribute("readonly");
             self.socket.accidentalDisconnect = false;
@@ -523,6 +477,7 @@
 
         //someone has deleted the file
         self.socket.on('fileNotFound', function(error){
+          self.show_error("File not found, redirect...");
           self.goBack();
         });
 
@@ -582,12 +537,12 @@
       _languageObserver: function(){
         var self = this;
         // self.$.languageSelector.value = self.selectedLanguage;
-        if (self.socket && !self.socket.isChangeLanguage){
-          // self.file.language = self.selectedLanguage;
-          self.socket.emit('changeLanguage', {newLanguage: self.selectedLanguage});
-        }else if (self.socket && self.socket.isChangeLanguage){
-          self.socket.isChangeLanguage = false;
-        }
+        // if (self.socket && !self.socket.isChangeLanguage){
+        //   // self.file.language = self.selectedLanguage;
+        //   self.socket.emit('changeLanguage', {newLanguage: self.selectedLanguage});
+        // }else if (self.socket && self.socket.isChangeLanguage){
+        //   self.socket.isChangeLanguage = false;
+        // }
       },
 
       loadFile: function(cb){

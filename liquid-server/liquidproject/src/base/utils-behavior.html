@@ -123,7 +123,7 @@
             }
           });
         }else{
-          self.log('session already exist; session id:', janus.getSessionId());
+          self.log('session already exist; session id:', self.janus.getSessionId());
         }
       },
 
@@ -495,6 +495,62 @@
         });
       },
 
+      joinRoom: function(room, username, password, onSuccess, onError){
+        var self = this;
+        function sendOffer(){
+          self.videoroom.createOffer({
+            media: {
+              video: false,
+              audio: false,
+              videoSend: false,
+              audioSend: false,
+              data: true,
+            },
+            success: function(jsep){
+              self.videoroom.send({
+                message: {
+                  request: "joinandconfigure",
+                  room: parseInt(room),
+                  ptype: 'publisher',
+                  display: username,
+                  id: (self._hashCode(username) << 8) + 0xFF,
+                  pin: password,
+                  video: false,
+                  audio: false,
+                  videoSend: false,
+                  audioSend: false,
+                  videoRecv: false,
+                  audioRecv: false,
+                  data: true,
+                },
+                jsep: jsep,
+                success: function(result){
+                  self.log('join success', result);
+                  onSuccess && onSuccess(result);
+                },
+                error: function(err){
+                  console.error("join error:", err);
+                  onError && onError(err);
+                }
+              });
+              self.log("publish request sent");
+            },
+            error: function(error){
+              self.log("publish error:", error);
+              onError && onError(error);
+            }
+          });
+        }
+        if (!self.janus || !self.videoroom){
+          self.createSession();
+          setTimeout(function(){
+            sendOffer();
+          },500);
+        }else{
+          sendOffer();
+        }
+      },
+
       leave: function(){
         var self = this;
         if (self.videoroom){
@@ -576,6 +632,10 @@
       show_info: function(msg){
         this.mainApp().infoMessage = msg;
         this.mainApp().$.infoToast.open();
+      },
+
+      eq: function(a, b){
+        return a == b;
       },
 
       request: function(url, method, data){

@@ -20,7 +20,7 @@ module.exports = {
   },
 
   //Protocol
-  PROTOCOL : 'https',
+  PROTOCOL : 'http',
 
   //HTTP/HTTPS local Server
   HTTP_PORT : 8040,

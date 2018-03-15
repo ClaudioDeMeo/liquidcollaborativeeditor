@@ -23,6 +23,9 @@
 <link rel="import" href="work-group.html">
 <link rel="import" href="file-manager.html">
 <link rel="import" href="add-file.html">
+<link rel="lazy-import" href="home-page.html">
+<link rel="lazy-import" href="room-page.html">
+<link rel="lazy-import" href="file.html">
 
 <dom-module id="my-liquid-app">
   <template>
@@ -130,7 +133,7 @@
         <!-- MAIN CONTENT -->
         <div class="layout vertical main-content">
           <template is="dom-if" if="{{!file}}" restamp>
-            <add-file></add-file>
+            <add-file hidden="[[eq(page,'file')]]"></add-file>
           </template>
           <div class="layout vertical flex center-justified">
             <iron-pages

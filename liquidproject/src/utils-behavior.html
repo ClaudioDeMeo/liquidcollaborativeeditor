@@ -1,0 +1,811 @@
+<!--
+@license
+-->
+<link rel="import" href="../../node_modules/@polymer/polymer/polymer.html">
+
+<script src="../js/debug.min.js" type="text/javascript"></script>
+<script src="../js/notifications.js" type="text/javascript"></script>
+
+<script src="../../node_modules/@polymer/moment/min/moment.min.js"></script>
+<script src="../../node_modules/@polymer/lodash/dist/lodash.min.js"></script>
+<script src="../../node_modules/@polymer/lodash-deep/lodash-deep.min.js"></script>
+<script src="../../node_modules/@polymer/socket.io-client/dist/socket.io.js"></script>
+
+<script>
+const config = {};
+
+const STREAM_POLICIES = [
+  {value: 'public', name: 'Public'},
+  {value: 'unlisted', name: 'Unlisted'},
+  {value: 'private', name: 'Private'},
+  {value: 'password', name: 'Password'},
+];
+
+const STREAM_POLICY = {
+  'public': { color: 'default', icon: 'social:group', text: 'Public' },
+  'unlisted': { color: 'warning', icon: 'social:people-outline', text: 'Unlisted' },
+  'private': { color: 'danger', icon: 'verified-user', text: 'Private' },
+  'password': { color: 'danger', icon: 'lock', text: 'Password protected' },
+};
+
+const STREAM_LICENSES = [
+  { value: 'CC0', name: 'Freeing content globally without restrictions' },
+  { value: 'CC-BY', name: 'Attribution alone' },
+  { value: 'CC-BY-SA', name: 'Attribution + ShareAlike' },
+  { value: 'CC-BY-NC', name: 'Attribution + Noncommercial' },
+  { value: 'CC-BY-ND', name: 'Attribution + NoDerivatives' },
+  { value: 'CC-BY-NC-SA', name: 'Attribution + Noncommercial + ShareAlike' },
+  { value: 'CC-BY-NC-ND', name: 'Attribution + Noncommercial + NoDerivatives' },
+]
+
+const PLAYLIST_POLICIES = [
+  {value: 'public', name: 'Public'},
+  {value: 'unlisted', name: 'Unlisted'},
+  {value: 'private', name: 'Private'},
+/*   {value: 'password', name: 'Password'}, */
+];
+
+const PLAYLIST_POLICY = {
+  'public': { color: 'default', icon: 'social:group', text: 'Public' },
+  'unlisted': { color: 'warning', icon: 'social:people-outline', text: 'Unlisted' },
+  'private': { color: 'danger', icon: 'verified-user', text: 'Private' },
+/*   'password': { color: 'danger', icon: 'lock', text: 'Password protected' }, */
+};
+
+const DEFAULT_THUMB = '/images/stream/background.png';
+
+const USER_PROFILE_POLICY = {
+    true: { color: 'default', icon: 'social:group', text: 'Public' },
+    false: { color: 'danger', icon: 'lock', text: 'Private' },
+};
+
+/**
+  * UtilsBehavior
+  *
+  * @polymerBehavior
+  */
+Polymer.UtilsBehavior = {
+    properties: {
+        config: {
+          type: Object,
+          value: function(){ return null; },
+          notify: true,
+          observer: 'configChanged',
+        },
+        
+        queryParams: {
+          type: Object,
+          value: function(){ return null; },
+          notify: true,
+          observer: 'queryParamsChanged',
+        },
+
+        user: {
+          type: Object,
+          value: function(){ return null; },
+          notify: true,
+          observer: 'userChanged',
+        },
+
+        authHeaders: {
+          type: Object,
+          value: function(){ return {}; },
+          notify: true,
+          observer: 'authHeadersChanged',
+        },
+
+        socket: {
+          type: Object,
+          value: function(){ return null; },
+          notify: true,
+          observer: 'socketChanged',
+        },
+
+        _socketSubscribeList: {
+          type: Object,
+          value: function(){ return {}; },
+          notify: true,
+        },
+
+        now: {
+          type: Number,
+          value: 0,
+          notify: true,
+        },
+
+        infoMessage: {
+          type: String,
+          value: '',
+          notify: true,
+        },
+
+        errorMessage: {
+          type: String,
+          value: '',
+          notify: true,
+        },
+
+        loading: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          observer: 'loadingChanged',
+        },
+
+        //
+        defaultThumbSmall: {
+          type: String,
+          value: function(){
+            return DEFAULT_THUMB;
+          },
+        },
+
+        defaultThumbLarge: {
+          type: String,
+          value: function(){
+            return DEFAULT_THUMB;
+          },
+        },
+
+        streamViewPolicies: {
+          type: Array,
+          value: STREAM_POLICIES
+        },
+
+        streamLicenses: {
+          type: Array,
+          value: STREAM_LICENSES,
+        },
+
+    },
+
+    configChanged: function(config){
+        var self = this;
+        self.log('configChanged', !!config);
+    },
+
+    queryParamsChanged: function(config){
+        var self = this;
+        self.log('queryParamsChanged', !!config);
+    },
+
+    userChanged: function(user, old){
+        //var self = this;
+        //self.log('userChanged', !!user);
+    },
+
+    authHeadersChanged: function(authHeaders, old){
+        //var self = this;
+        //self.log('userChanged', !!user);
+    },
+
+    loadingChanged: function(loading){
+      var self = this;
+      if(self.is !== 'main-app'){
+        setTimeout(function(){
+          self.mainApp().loading = self.loading;
+        }, 500);
+      }
+    },
+
+    isAdmin: function(user){
+        return user && user.admin;
+    },
+
+    userDisplay: function(user){
+      if(!user){
+        return null;
+      }
+      if(user.firstname || user.lastname){
+        return (user.firstname || '')+' '+(user.lastname || '');
+      }
+      return user.email;
+    },
+
+    queryParams: function(){
+        return {};
+    },
+
+    //
+    ready: function(){
+        var self = this;
+        self.log('ready', !!self.config, !!self.user);
+        //
+        if(self.is !== 'main-app'){
+            // config
+            self.set('config', self.mainApp().config);
+            self._appConfigChanged = function(e){
+                self.set('config', e.detail.value);
+            };
+            self.mainApp().addEventListener('config-changed', self._appConfigChanged);
+            // queryParams
+            self.set('queryParams', self.mainApp().queryParams);
+            self._appQueryParamsChanged = function(e){
+                self.set('queryParams', e.detail.value);
+            };
+            self.mainApp().addEventListener('query-params-changed', self._appQueryParamsChanged);
+            // user
+            self.set('user', self.mainApp().user);
+            self._appUserChanged = function(e){
+                self.set('user', e.detail.value);
+            };
+            self.mainApp().addEventListener('user-changed', self._appUserChanged);
+            // authHeaders
+            self.set('authHeaders', self.mainApp().authHeaders);
+            self._appAuthHeadersChanged = function(e){
+                self.set('authHeaders', e.detail.value);
+            };
+            self.mainApp().addEventListener('auth-headers-changed', self._appAuthHeadersChanged);
+            // socket
+            self.socket = self.mainApp().socket;
+            if(self.socket && self.socket.connected){
+                self.socketConnected({
+                  detail: self.socket
+                });
+            }
+            self._appSocketChanged = function(e){
+                self.socket = e.detail.value;
+            }
+            self.mainApp().addEventListener('socket-changed', self._appSocketChanged);
+            self.mainApp().addEventListener('socket-connected', self.socketConnected.bind(self));
+            self.mainApp().addEventListener('socket-disconnected', self.socketDisconnected.bind(self));
+        }
+        //
+        self._nowInterval = setInterval(function(){
+          self.set('now', Date.now() / 1000);
+        }, 30*1000);
+    },
+
+    detached: function(){
+        var self = this;
+        self.log('detached');
+        if(self.is !== 'main-app'){
+            // config
+            self.mainApp().removeEventListener('config-changed', self._appConfigChanged);
+            self._appConfigChanged = null;
+            self.set('config', null);
+            // queryParams
+            self.mainApp().removeEventListener('query-params-changed', self._appQueryParamsChanged);
+            self._appQueryParamsChanged = null;
+            self.set('queryParams', null);
+            // remove user
+            self.mainApp().removeEventListener('user-changed', self._appUserChanged);
+            self._appUserChanged = null;
+            self.set('user', null);
+            // remove authHeaders
+            self.mainApp().removeEventListener('auth-headers-changed', self._appAuthHeadersChanged);
+            self._appAuthHeadersChanged = null;
+            self.set('authHeaders', null);
+            // remove socket
+            self.mainApp().removeEventListener('socket-changed', self._appSocketChanged);
+            self._appSocketChanged = null;
+            self.socket = null;
+        }
+        clearInterval(self._nowInterval);
+    },
+
+    // socket
+    initSocket: function(){
+        var self = this;
+        if(self.socket){
+          self.removeSocket();
+        }
+        self.log('initSocket');
+        var options = { 
+            transports: ['websocket'], 
+        };
+        if(self.user){
+            options.query = {
+              'token': self.user.token,
+            }
+        }
+        self.socket = io(self.config.API_URL, options)
+        .on('connect', function(){
+            self.log('Socket connected');
+            //self.showMessage('Connected', 4);
+            self.fire('socket-connected', self.socket);
+        })
+        .on('disconnect', function(){
+            self.log('Socket disconnected');
+            //self.showError('Disconnected');
+            self.fire('socket-disconnected', self.socket);
+        })
+        .on('error', function(error){
+            console.log('Socket error: ', error);
+            if(error.type == "UnauthorizedError" || error.code == "invalid_token"){
+              self.showError('Connect error: unauthorized');
+            }
+            self.removeSocket();
+        });
+    },
+
+    removeSocket: function(){
+        var self = this;
+        if(!self.socket){
+          return;
+        }
+        this.log('removeSocket');
+        self.socket.disconnect();
+        self.socket = null;
+    },
+
+    socketChanged: function(socket){
+        var self = this;
+        self.log('socketChanged');
+        if(socket){
+            // connect watch events
+            Object.keys(self._socketSubscribeList).forEach(function(id){
+                var w = self._socketSubscribeList[id];
+                socket.on(w.event, w.cb);
+            });
+        }
+    },
+
+    socketConnected: function(e){
+        var self = this;
+        var socket = e.detail;
+        //self.log('socketConnected');
+        // send subscribe requests
+        Object.keys(self._socketSubscribeList).forEach(function(id){
+            var w = self._socketSubscribeList[id];
+            socket.emit('subscribe:'+w.name, w.data, function(err){
+              if(err){
+                console.error('subscribe error:', err);
+                return;
+              }
+              //self.log('socket subscribed:', w.name, 'event:', w.event);
+            });
+        });
+    },
+
+    socketDisconnected: function(){
+    
+    },
+
+    socketSubscribe: function(name, data, event, cb){
+        var self = this;
+        var id = parseInt(Math.random()*1e9);
+        self.log('socketSubscribe', id, name, data, event);
+        self._socketSubscribeList[id] = {
+            name: name,
+            data: data,
+            event: event,
+            cb: cb,
+        }
+        //
+        if(self.socket){
+            self.socket.on(event, cb);
+            //
+            if(self.socket.connected){
+                self.socket.emit('subscribe:'+name, data, function(err){
+                  if(err){
+                    console.error('subscribe error:', err);
+                    return;
+                  }
+                  self.log('socketSubscribe subscribed:', name, 'event:', event);
+                });
+            }
+        }
+        return id;
+    },
+
+    socketUnsubscribe: function(id){
+        var self = this;
+        self.log('socketUnsubscribe', id);
+        var w = self._socketSubscribeList[id];
+        if(!w){
+            console.error('unsubscribe id not found', id);
+            return;
+        }
+        //
+        if(self.socket){
+          self.socket.off(w.event, w.cb);
+          // if no listeners, remove watch
+          if(self.socket.connected && self.socket.listeners(w.event).length === 0){
+              self.socket.emit('unsubscribe:'+w.name, w.data);
+          }
+        }
+        delete(self._socketSubscribeList[id]);
+    },
+
+    //
+    log: function(){
+        var id = this.getAttribute('id');
+        id = this.is+(id !== null ? '-'+id:'');
+        this.log = debug(id);
+        this.log.apply(arguments);
+    },
+
+    updateAuthHeaders: function(){
+        var self = this;
+        self.log('updateAuthHeaders', localStorage.token);
+        //
+        if(localStorage.token){
+            self.mainApp().set('authHeaders', {
+              'Authorization': 'Bearer '+localStorage.token,
+            });
+        }
+        else{
+            self.mainApp().set('authHeaders', {});
+        }
+    },
+
+    mainApp: function(){
+        if(this.is === 'main-app'){
+          return this;
+        }
+        return document.querySelector('main-app');
+    },
+
+    redirect: function(path){
+        this.mainApp().set('route.path', path);
+    },
+
+    //
+    showMessage: function(message){
+      this.mainApp().infoMessage = message;
+      this.mainApp().$.infoToast.open();
+    },
+
+    showError: function(message){
+      this.mainApp().errorMessage = message;
+      this.mainApp().$.errorToast.open();
+    },
+
+    closeInfoToast: function(){
+      this.mainApp().$.infoToast.close();
+    },
+
+    closeErrorToast: function(){
+      this.mainApp().$.errorToast.close();
+    },
+
+    //
+    onError: function(e){
+        console.error(e.detail.value);
+        this.showError(e.detail.value.response.message || e.detail.value.statusText);
+    },
+
+    //
+    bool: function(v){
+        return !!v;
+    },
+
+    formatSeconds: function(t){
+      return t > 0 ? moment(t*1000).format('DD/MM/YYYY HH:mm:ss') : '';
+    },
+
+    formatTime: function(t){
+      return t > 0 ? moment(t*1000).format('DD/MM/YYYY HH:mm:ss') : '';
+    },
+
+    formatTimeMs: function(t){
+      return this.formatTime(t/1000);
+    },
+
+    formatDateString: function(s){
+      return moment(s).format('DD/MM/YYYY HH:mm:ss');
+    },
+
+    formatDateStringFromNow: function(s){
+      return moment(s).fromNow();
+    },
+
+    json: function(data){
+        return JSON.stringify(data, null, 2) || data;
+    },
+
+    join: function(){
+        return arguments.join('');
+    },
+
+    endsWith: function(s, e){
+      return s.endsWith(e);
+    },
+
+    isIn: function(){
+      var s = arguments.splice(0, 1)[0];
+      var v = arguments.splice(1);
+      return v.indexOf(s) !== -1;
+    },
+
+    arrayLength: function(v){
+        return v ? v.length : 0;
+    },
+
+    emptyArray: function(v){
+        return !v || v.length === 0;
+    },
+
+    notEmptyArray: function(v){
+        return v && v.length > 0;
+    },
+
+    and: function(){
+      for(var i=0; i<arguments.length; i++){
+        if(!arguments[i]){
+          return false;
+        }
+      }
+      return true;
+    },
+
+    or: function(){
+      for(var i=0; i<arguments.length; i++){
+        if(!!arguments[i]){
+          return true;
+        }
+      }
+      return false;
+    },
+
+    eq: function(a, b){
+      return a == b;
+    },
+
+    neq: function(a, b){
+      return a != b;
+    },
+
+    gte: function(a, b){
+      return a >= b;
+    },
+
+    lte: function(a, b){
+      return a <= b;
+    },
+
+    formatDate: function(date){
+      if(!date){
+        return '';
+      }
+      if(typeof(date) === 'number'){
+        date = date*1000;
+      }
+      return moment(date).format('LLL');
+    },
+
+    formatDuration: function(t){
+      function pad(n, width, z) {
+          z = z || '0';
+          if(n<=0)
+              n = 0;
+          n = n.toFixed(0) + '';
+          return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+      }
+      //
+      if(isNaN(t) || t === undefined || t <= 0){
+          return '00:00:00';
+      }
+      t = Math.round(t);
+      var ret = '';
+      //
+      var seconds = t % 60;
+      t -= seconds;
+      ret = pad(seconds, 2);
+      //
+      var minutes = (t % 3600) / 60;
+      t -= minutes * 60;
+      ret = pad(minutes, 2)+':'+ret;
+      //
+      var hours = (t % (24*3600)) / 3600;
+      t -= hours * 3600;
+      ret = pad(hours, 2)+':'+ret;
+      //
+      var days = (t / (24*3600)).toFixed(0);
+      if(days > 0)
+          ret = days+'d '+ret;
+      //
+      return ret;
+    },
+
+    formatDurationMs: function(t){
+      return this.formatDuration(t/1000);
+    },
+
+    formatBytes: function(b, precision){
+        precision = precision !== undefined ? precision : 2;
+        if(b === undefined || b <= 0){
+            return '0 B';
+        }
+        if(b < 1000){
+            return (b).toFixed(0)+' B';
+        }else if(b < 1000*1000){
+            return (b/1000.0).toFixed(precision)+' KB';
+        }else if(b < 1000*1000*1000){
+            return (b/(1000.0*1000.0)).toFixed(precision)+' MB';
+        }else if(b < 1000*1000*1000*1000){
+            return (b/(1000.0*1000.0*1000.0)).toFixed(precision)+' GB';
+        }else {
+            return (b/(1000.0*1000.0*1000.0*1000.0)).toFixed(precision)+' TB';
+        }
+    },
+
+    formatBits: function(b, precision){
+        if(b === undefined || b <= 0){
+            return '0 b';
+        }
+        if(b < 1e3){
+            return Math.round(b)+' b';
+        }else if(b < 1e6){
+            return (precision === undefined ? Math.round(b/1e3):(b/1e3).toFixed(precision))+' Kb';
+        }else if(b < 1e9){
+            return (precision === undefined ? Math.round(b/1e6):(b/1e6).toFixed(precision))+' Mb';
+        }else{
+            return (precision === undefined ? Math.round(b/1e9):(b/1e9).toFixed(precision))+' Gb';
+        }
+    },
+
+    count: function(v){
+        return v ? v.length : 0;
+    },
+
+    //
+    profilePolicyColor: function(value){
+      return USER_PROFILE_POLICY[!!value].color;
+    },
+
+    profilePolicyIcon: function(value){
+      return USER_PROFILE_POLICY[!!value].icon;
+    },
+
+    profilePolicyText: function(value){
+      return USER_PROFILE_POLICY[!!value].text;
+    },
+
+    //
+    streamPolicies: function(){
+      return STREAM_POLICIES;
+    },
+
+    streamPolicyColor: function(stream){
+      return STREAM_POLICY[stream.view_policy].color;
+    },
+
+    streamPolicyIcon: function(stream){
+      return STREAM_POLICY[stream.view_policy].icon;
+    },
+
+    streamPolicyText: function(stream){
+      return STREAM_POLICY[stream.view_policy].text;
+    },
+    
+    //
+    playlistPolicies: function(){
+      return PLAYLIST_POLICIES;
+    },
+
+    playlistPolicyColor: function(playlist){
+      return PLAYLIST_POLICY[playlist.view_policy].color;
+    },
+
+    playlistPolicyIcon: function(playlist){
+      return PLAYLIST_POLICY[playlist.view_policy].icon;
+    },
+
+    playlistPolicyText: function(playlist){
+      return PLAYLIST_POLICY[playlist.view_policy].text;
+    },
+
+    //
+    _isLive: function(stream){
+      return stream && stream.type === 'live';
+    },
+    
+    _isVod: function(stream){
+      return stream && stream.type === 'vod';
+    },
+
+    _isDvr: function(stream){
+      return stream && stream.type === 'dvr';
+    },
+
+    //
+    findChildren: function(name){
+      var ret = [];
+      //
+      function _iterate(e){
+        e && e.forEach(element => {
+          if(element.nodeName.toLowerCase() === name){
+            ret.push(element);
+          }
+          else if(element.childNodes.length !== 0){
+            _iterate(element.childNodes);
+          }
+          else if(typeof(element.assignedNodes)==="function"){
+            _iterate(element.assignedNodes());
+          }
+        })
+      }
+      //
+
+      _iterate(this.childNodes);
+      return ret;
+    },
+
+    findDivContainer: function(element){
+        while(element){
+            element = element.parentNode;
+            if(element && element.classList && element.classList.contains('tab-container')){
+                return element
+            }
+        }
+    },
+
+    findOnEventPath: function(event, cb){
+      var path = event.path || (event.composedPath && event.composedPath());
+      if(!path){
+        return null;
+      }
+      for(var i=0; i<path.length; i++){
+        if(cb(path[i])){
+          return path[i];
+        }
+      }
+      return null;
+    },
+
+    request: function(url, method, data){
+      var self = this;
+      //
+      var request = document.createElement('iron-request');
+      var options = {
+        url: url,
+        method: method,
+        headers: self.authHeaders, 
+        handleAs: 'json',
+      };
+      options.headers['Content-Type'] = 'application/json';
+      if(method === 'POST' || method === 'PATCH'){
+        options.body = data;
+      }
+      else{
+        var params = Object.keys(data).map(function(k) {
+            return encodeURIComponent(k) + "=" + encodeURIComponent(data[k]);
+        }).join('&');
+        options.url = options.url+'?'+params;
+      }
+      //
+      self.loading = true;
+      //
+      request.send(options);
+      return request.completes.then(function(ret){
+        self.loading = false;
+        return Promise.resolve(ret);
+      }, function(err){
+        self.loading = false;
+        return Promise.reject(err);
+      });
+    },
+
+    //
+    updateUser: function(user){
+      var self = this;
+      //
+      return self.request(self.config.API_URL+'/api/v1/User/'+user._id, 'PATCH', user)
+      .then(function(ret){
+        self.showMessage('User updated');
+        return Promise.resolve(ret);
+      }, function(err){
+        self.showError('Error: '+err.message);
+        return Promise.reject(err);
+      });
+    },
+
+    getStream: function(id, params){
+      var self = this;
+      return self.request(self.config.API_URL+'/api/v1/Stream/'+id, 'GET', params)
+      .then(function(ret){
+        return Promise.resolve(ret);
+      }, function(err){
+        self.showError('Error: '+err.message);
+        return Promise.reject(err);
+      });
+    },
+
+    deleteCookie: function(name){
+      document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+    },
+
+};
+</script>

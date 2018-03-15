@@ -1,0 +1,419 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/paper-card/paper-card.html">
+
+<link rel="import" href="base/utils-behavior.html">
+
+<dom-module id="file-manager">
+  <template>
+    <style include="shared-styles">
+
+      #uploadBtn,.file{
+        background: none;
+        margin-top: 3px;
+      }
+
+      .fileBtn{
+        background: none;
+        margin-top: 3px;
+        border-radius: 25px;
+        /*font-size: smaller;*/
+      }
+
+      .file{
+        border-radius: 25px;
+        max-width: 50vw;
+        overflow: hidden;
+      }
+
+      .fileBtn:hover{
+        font-style: oblique;
+        font-weight: bold;
+      }
+
+      /*#uploadBtn:hover{
+        background: var(--primary-background-color);
+      }*/
+
+      .file:hover{
+        font-style: oblique;
+        font-weight: bold;
+      }
+
+      .container{
+        height: 65vh;
+      }
+
+      #roomError{
+        margin: 0px;
+        color: red;
+      }
+
+      iron-list{
+        overflow-y: auto;
+      }
+
+      paper-card {
+        margin: 5px 24px 0px 24px;
+        height: 65vh;
+        width: -webkit-fill-available;
+        width: available;
+        width: fill-available;
+        width: -moz-available;
+        padding: 16px;
+        color: #757575;
+        border-radius: 5px;
+        background-color: #fff;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      .main-card{
+        height: unset;
+      }
+
+      .card-header {
+        padding: 16px;
+        font-size: 24px;
+        font-weight: 400;
+        color: #000;
+      }
+
+      .card-body {
+        overflow-y: auto;
+      }
+
+      .language{
+        background-color: rgb(153, 153, 153);
+        border-radius: 15px;
+        color: white;
+        padding: 0px 10px 0px 10px;
+        margin-top: 5px;
+      }
+
+    </style>
+    <div class="flex">
+      <paper-card class="main-card">
+        <div class="card-content layout flex horizontal center center-justified">
+          <paper-button class="fileBtn" on-tap="newFile">
+            <div class="layout vertical center center-justified">
+              <iron-icon icon="add-circle"></iron-icon>
+              <div>New File</div>
+            </div>
+          </paper-button>
+          <p>OR</p>
+          <paper-button class="fileBtn" on-tap="uploadFile">
+            <div class="layout vertical center center-justified">
+              <iron-icon icon="file-upload"></iron-icon>
+              <div>Upload File</div>
+            </div>
+          </paper-button>
+        </div>
+      </paper-card>
+      <paper-card class="layout vertical" hidden$={{!room}}>
+        <div class="card-content layout vertical">
+          <div class="card-header layout horizontal">
+            <div>
+              Room: {{room._id}}
+            </div>
+            <span class="flex"></span>
+            <paper-icon-button icon="exit-to-app" title="exit" on-tap="exitRoom">
+            </paper-icon-button>
+          </div>
+          <div class="card-body">
+            <template is="dom-repeat" items="[[list]]">
+              <hr>
+              <div class="layout horizontal center">
+                <paper-button class="file"
+                title="open"
+                file="[[item]]"
+                on-tap="selectFile">
+                  [[item.name]]
+                </paper-button>
+                <small class="language">[[item.language]]</small>
+                <span class="flex"></span>
+                <paper-icon-button
+                icon="file-download"
+                title="download"
+                fid="[[item.fid]]"
+                fname="[[item.name]]"
+                on-tap="downloadFile">
+                </paper-icon-button>
+                <paper-icon-button
+                icon="delete-forever"
+                title="delete"
+                fid="[[item.fid]]"
+                on-tap="deleteFile">
+                </paper-icon-button>
+              </div>
+            </template>
+            <hr>
+          </div>
+        </div>
+      </paper-card>
+      <div class="container layout vertical center center-justified" hidden$={{room}}>
+        <small id="roomError" hidden>room not found</small>
+        <paper-input
+        id="roomSelector"
+        label="Room"
+        name="room"
+        value="{{roomCandidate._id}}"
+        type="text"
+        placeholder="Insert Room"
+        on-keyup="_checkRoomInput">
+        </paper-input>
+        <paper-button raised on-tap="connectRoom">
+          <iron-icon icon="done"></iron-icon>
+          Connect
+        </paper-button>
+      </div>
+    </div>
+  </template>
+  <script>
+
+    Polymer({
+      is:'file-manager',
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+      properties: {
+        janus: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        janusRoom: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        room: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        roomCandidate: {
+          type: Object,
+          value: {
+            _id: "",
+            secret: "",
+          },
+          notify: true,
+        },
+        file: {
+          type: String,
+          value: null,
+          notify: true,
+          observer: "_fileObserver"
+        },
+        list: {
+          type: Array,
+          value: function(){ return [] },
+          notify: true,
+        },
+        refreshFileListInterval: {
+          type: Object,
+          value: null,
+          notify: true,
+        }
+      },
+
+      _fileObserver: function(){
+        var self = this;
+        if (!self.refreshFileListInterval && !self.file && self.room){
+          self.refreshFileListInterval = setInterval(function(){
+            self.getFileList(self.room);
+          },2000);
+        }
+      },
+
+      selectFile: function(e){
+        var self = this;
+        self.set('file',e.currentTarget.file);
+        clearInterval(self.refreshFileListInterval);
+        self.refreshFileListInterval = null;
+      },
+
+      deleteFile: function(e){
+        var request = new XMLHttpRequest();
+        request.error = function(error){
+          self.log("deleteFile error: ",error);
+        };
+        request.open('POST','/delete',true);
+        request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        request.send(JSON.stringify({fid: e.currentTarget.fid}));
+      },
+
+      uploadFile: function(){
+        var self = this;
+        DialogUpload();
+      },
+
+      newFile: function(){
+        var self = this;
+        DialogNewFile();
+      },
+
+      downloadFile: function(e){
+        var request = new XMLHttpRequest();
+        var fname = e.currentTarget.fname;
+        request.onload = function(e){
+          switch (this.status){
+            case 200:
+              var blob = new Blob([this.response], {type: 'text/plain'});
+              var a = document.createElement("a");
+              a.style = "display: none";
+              document.body.appendChild(a);
+              var url = window.URL.createObjectURL(blob);
+              a.href = url;
+              a.download = fname;
+              a.click();
+              window.URL.revokeObjectURL(url);
+              a.parentNode.removeChild(a);
+              break;
+            case 500:
+              self.log("download error");
+              break;
+            case 404:
+              self.log("File not found");
+              break;
+          }
+        };
+        request.error = function(error){
+          self.log("downloadFile error: ",error);
+        };
+        request.open('GET','/download/' + e.currentTarget.fid,true);
+        request.responseType = 'blob';
+        request.send();
+      },
+
+      _checkRoomInput: function(e){
+        var i = 1;
+        while ((isNaN(e.currentTarget.value) || e.currentTarget.value < 1 || e.currentTarget.value >= 100000) && e.currentTarget.value!=""){
+          e.currentTarget.value = e.currentTarget.value.slice(0,-i);
+          i++;
+        }
+        e.currentTarget.previousElementSibling.hidden = true;
+        if (e.key == "Enter"){
+          e.currentTarget.nextElementSibling.click();
+        }
+      },
+
+      connectRoom: function(){
+        var self = this;
+        self.janus = startSession(()=>{
+          self.janus.attach({
+            plugin: "janus.plugin.videoroom",
+            success: function(pluginHandle){
+              self.janusRoom = pluginHandle;
+              self.getRoomList((result)=>{
+                var rooms = result["list"];
+                self.roomList = [];
+                if (rooms.length>0){
+                  var index = rooms.find(function(element){
+                    return element.room.toString() == self.roomCandidate._id;
+                  });
+                  if (index != undefined){
+                    self.$.roomError.hidden = true;
+                    self.set('room',{_id : parseInt(self.roomCandidate._id), secret : self.roomCandidate.secret});
+                    self.set('roomCandidate',{_id : "", secret : ""});
+                    self.refreshFileListInterval = setInterval(function(){
+                      self.getFileList(self.room);
+                    },2000);
+                  }else{
+                    self.$.roomError.hidden = false;
+                  }
+                }
+              });
+            },
+            error: function(cause) {
+              self.log("join Couldn't attach to the plugin because: "+cause);
+            }
+          });
+        },function(){
+          self.log("janus error");
+        });
+      },
+
+      getRoomList: function(cb){
+        var self = this;
+        self.janusRoom.send({
+          message :{
+            request: "list"
+          },
+          success: function(result){
+            cb && cb(result);
+          },error:function(cause){
+            self.log("Request list error because: " + cause);
+          }
+        });
+      },
+
+      exitRoom:function(){
+        var self = this;
+        self.room = null;
+        clearInterval(self.refreshFileListInterval);
+        self.refreshFileListInterval = null;
+      },
+
+      getFileList: function(room){
+        var self = this;
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function(){
+          if (this.readyState == 4 && this.status == 200) {  //SUCCESS
+            var data = JSON.parse(request.responseText);
+            self.list = [];
+            if (data.list.length > 0){
+              self.set('list',data.list);
+            }
+            if (self.list.length == 0){
+              self.deleteRoom();
+            }
+          }else if(this.readyState == 4 && (this.status == 0 || this.status == 404) ){  //ERROR
+            self.room = null;
+          }
+        };
+        request.error = function(error){
+          self.log("getFileList error: ",error);
+        };
+        request.open('GET','/list/' + self.room._id,true);
+        request.send();
+      },
+
+      deleteRoom: function(){
+        var self = this;
+        self.getRoomList((result)=>{
+          var rooms = result["list"];
+          var index = rooms.find(function(element){
+            return element.room==self.room._id;
+          });
+          if (index!=undefined){
+            var room = self.room;
+            self.exitRoom();
+            self.janusRoom.send({
+              message :{
+                request: "destroy",
+                room: room._id,
+                secret: room.secret
+              },
+              success: function(result){
+                self.log("room " + room._id + " destroyed!");
+              },error:function(cause){
+                self.log("Request destroy room error because: " + cause);
+              }
+            });
+          }
+        });
+      },
+
+    });
+  </script>
+</dom-module>

@@ -1,0 +1,111 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../bower_components/iron-a11y-keys/iron-a11y-keys.html">
+
+<link rel="import" href="base/utils-behavior.html">
+
+<dom-module id="home-page">
+  <template>
+    <style include="shared-styles">
+
+      div{
+        height: 100%;
+      }
+
+      .disabled{
+        color: #a8a8a8 !important;
+      }
+
+    </style>
+
+    <app-location
+        route="{{route}}"
+        url-space-regex="^[[rootPath]]">
+    </app-location>
+
+    <div class="layout vertical center center-justified">
+      <iron-a11y-keys target="[[roomInputElement]]" keys="enter" on-keys-pressed="connectRoom"></iron-a11y-keys>
+      <paper-input
+      id="roomInput"
+      label="Room"
+      name="room"
+      value="{{roomcandidate}}"
+      type="text"
+      placeholder="Insert Room"
+      on-keyup="_checkRoomInput">
+      </paper-input>
+      <paper-button raised on-tap="connectRoom" disabled>
+        <iron-icon icon="done"></iron-icon>
+        Connect
+      </paper-button>
+      <a id="navigator" hidden href="[[rootPath]]room/[[roomcandidate]]"></a>
+    </div>
+  </template>
+  <script>
+
+    Polymer({
+      is:'home-page',
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+      properties: {
+        roomInputElement: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        roomcandidate: {
+          type: String,
+          value: "",
+          notify: true,
+        },
+      },
+
+      ready: function(){
+        var self = this;
+        self.roomInputElement = self.$.roomInput;
+      },
+
+      _checkRoomInput: function(e){
+        var i = 1;
+        while ((isNaN(e.currentTarget.value) || e.currentTarget.value < 1 || e.currentTarget.value > 99999) && e.currentTarget.value!=""){
+          e.currentTarget.value = e.currentTarget.value.slice(0,-i);
+          i++;
+        }
+        if(e.currentTarget.value.length>0){
+          e.currentTarget.nextElementSibling.disabled = false;
+          e.currentTarget.nextElementSibling.firstElementChild.classList.remove("disabled");
+        }else{
+          e.currentTarget.nextElementSibling.disabled = true;
+          e.currentTarget.nextElementSibling.firstElementChild.classList.add("disabled");
+        }
+      },
+
+      connectRoom: function(e){
+        var self = this;
+        var a = self.$.navigator;
+        if (!self.janus){
+          self.createSession();
+        }
+        setTimeout(function(){
+          self.existRoom(self.roomcandidate, function(result){
+            if (result.exists){
+              a.click();
+            }else{
+              self.show_error('room ' + result.room + ' not found');
+            }
+          });
+        },200);
+
+      },
+
+
+    });
+  </script>
+</dom-module>

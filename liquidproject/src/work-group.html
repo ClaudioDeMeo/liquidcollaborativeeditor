@@ -1,0 +1,328 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+<link rel="import" href="../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../bower_components/iron-selector/iron-selector.html">
+<link rel="import" href="../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../bower_components/iron-icons/social-icons.html">
+<link rel="import" href="../bower_components/iron-icons/av-icons.html">
+<link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../bower_components/sortable-list/sortable-list.html">
+<link rel="import" href="../bower_components/iron-a11y-keys/iron-a11y-keys.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-input/paper-input.html">
+
+<link rel="import" href="base/utils-behavior.html">
+<link rel="import" href="room/room-media.html">
+<link rel="import" href="player/local-video-player.html">
+<link rel="import" href="player/remote-video-player.html">
+
+<dom-module id="work-group">
+  <template>
+    <style include="shared-styles">
+
+      app-header-layout {
+        position: inherit;
+      }
+
+      app-header {
+        background: #fff;
+        height: -webkit-fill-available;
+      }
+
+      app-toolbar {
+        color: var(--primary-text-color);
+        background-color: var(--primary-background-color);
+      }
+
+      paper-item {
+        margin: 2px;
+      }
+
+      .list {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+      }
+
+      .publisher-button-add{
+        position: absolute;
+        top:0;
+        width: 100%;
+        height: 100%;
+        color: var(--primary-text-color);
+        background-color: #ddd;
+        border: dashed 4px lightgray;
+        font-size: 48px;
+        padding: 0;
+        margin: 0;
+      }
+
+      .containerLocal{
+        position: relative;
+        /*margin-top: 0.5em;*/
+        margin-left: 0.5em;
+        width: fit-content;
+        min-width: 120px;
+        min-height: 90px;
+      }
+
+      .remote {
+        margin-right: 0.5em;
+      }
+
+      hr{
+        margin: 5px;
+      }
+
+    </style>
+    <!-- WORK-GROUP DEFINE -->
+    <app-header-layout has-scrolling-region>
+      <app-header fixed slot="header">
+        <app-toolbar>Workgroup ({{room}})</app-toolbar>
+        <!-- VIDEO LOCAL -->
+        <div class="layout vertical center center-justified wrap" hidden="{{!videoroom}}">
+          <b>{{username}}</b>
+          <div class="containerLocal">
+            <local-video-player publisher="{{developer}}"></local-video-player>
+            <paper-icon-button
+              icon="add"
+              class="publisher-button-add"
+              hidden="{{developer.stream}}"
+              on-tap="_onAddLocalPublisher">
+            </paper-icon-button>
+          </div>
+        </div>
+        <hr>
+        <!-- PARTICIPANT LIST AND VIDEO -->
+        <sortable-list class="list" dragging="{{dragging}}" sortable=".item">
+          <template id="developers" is="dom-repeat" items={{developers}} observe="stream videoStream audioStream" filter="filterRemotePublishers">
+            <paper-item class="remote-item item">
+              <div class=" layout horizontal center wrap">
+                <remote-video-player id="remotevideo{{index}}" class="remote" publisher="{{item}}"></remote-video-player>
+                <div>
+                  <b>[[item.display]]</b>
+                  <iron-icon icon="create" hidden="{{!item.writing}}"></iron-icon>
+                </div>
+              </div>
+            </paper-item>
+          </template>
+        </sortable-list>
+      </app-header>
+    </app-header-layout>
+  </template>
+
+  <script>
+
+    String.prototype.hashCode = function(){
+      var hash = 0, i, chr;
+      if (this.length === 0) return hash;
+      for(i = 0; i < this.length; i++){
+        chr = this.charCodeAt(i);
+        hash = (hash << 7) + chr;
+      }
+      hash = hash & 0x007FFFFF;
+      return hash;
+    };
+
+    Polymer({
+      is:'work-group',
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+      properties: {
+      },
+
+      filterRemotePublishers: function(publisher){
+        var self = this;
+        var found = false;
+        if (publisher.data){
+          var i=0;
+          while (!found && i<self.developers.length){
+            found=(self.developers[i].display===publisher.display && self.developers[i].id!==publisher.id);
+            i++;
+          }
+        }
+        return !found;
+      },
+
+      _onAddLocalPublisher: function(){
+        var self = this;
+        self.log('onAddLocalPublisher');
+        //
+        var el = MediaDialog(function(err, result){
+          self.log('MediaDialog', err, result);
+          if(!err){
+            var publisher = result.detail;
+            publisher.handle = null;
+            publisher.stream = null;
+            publisher.joined = false;
+
+            self.set('developer', publisher);
+            self.publish(self.developer);
+
+            // self.push('developer', publisher);
+            //
+            // self.publishCallback(publisher, self.developer.length-1);
+          }
+        });
+        // el.room = self.room;
+      },
+
+      publish: function(){
+        var self = this;
+        self.log('publish', self.developer);
+        self.janus.attach({
+          plugin: "janus.plugin.videoroom",
+          success: function(pluginHandle){
+            self.set('developer.handle', pluginHandle);
+            self.log("publish plugin:", pluginHandle.getPlugin(), 'id:', pluginHandle.getId());
+
+            // publish to room
+            var media = {
+              video: self.developer.video,
+              audio: self.developer.audio,
+              videoSend: self.developer.videoSend,
+              audioSend: self.developer.audioSend,
+            }
+            //
+            pluginHandle.createOffer({
+              media: media,
+              success: function(jsep){
+                pluginHandle.send({
+                  message: {
+                    request: "joinandconfigure",
+                    room: self.room,
+                    ptype: 'publisher',
+                    id: (self._hashCode(self.username) << 8) + (self.developer.display[0] << 4) + self.developer.display[1],
+                    display: self.username,
+                    pin: self.password,
+                    data: false,
+                    video: self.developer.videoSend,
+                    audio: self.developer.audioSend,
+                    bitrate: self.developer.bitrate,
+                    videoRecv: false,
+                    audioRecv: false,
+                  },
+                  jsep: jsep
+                });
+                self.log("publish request sent");
+              },
+              error: function(error){
+                self.log("publish error:", error);
+              }
+            });
+          },
+          error: function(err){
+            self.log("publish Couldn't attach to the plugin because: ", err);
+          },
+          iceState: function(icestate){
+            self.log('publish iceState', icestate);
+          },
+          mediaState: function(type, on){
+            self.log('publish mediaState', type, on);
+          },
+          slowLink: function(uplink){
+            self.log('publish slowLink', uplink);
+          },
+          onmessage: function(msg, jsep){
+            self.log("publish onmessage", msg, 'jsep:', jsep);
+
+            //
+            if(jsep){
+              self.developer.handle.handleRemoteJsep({
+                jsep: jsep
+              });
+            }
+
+            //
+            var event = msg.videoroom;
+            if(!event){
+              return;
+            }
+
+            if(msg.error){
+              console.error('publish error:', msg.error);
+              self.show_error(msg.error);
+              self.unpublish();
+              return;
+            }
+
+            if(event === "joined"){
+              self.log('publish joined', msg);
+              self.set('developer.joined', true);
+            }
+            else if(event === "destroyed") {
+              self.log("publish room destroyed");
+              self.unpublish();
+              self.reset();
+              return;
+            }
+            else if(event === "event"){
+              if(msg.reason === 'kicked'){
+                self.log('publish kicked');
+                self.unpublish();
+                self.reset();
+                return;
+              }
+              if(msg.leaving){
+                self.log("publish leaving", msg.leaving);
+                if(msg.leaving === 'ok'){
+                  self.unpublish();
+                }
+              }
+              if(msg.unpublished){
+                self.log("publish unpublished", msg.unpublished);
+                if(msg.unpublished === 'ok'){
+                  self.unpublish();
+                }
+              }
+            }
+          },
+          webrtcState: function(state, reason) {
+            self.log('publish webrtcState', state, reason);
+            if(!state){
+              self.unpublish();
+            }
+          },
+          onlocalstream: function(stream) {
+            self.log('publish onlocalstream', stream, stream.getVideoTracks(), stream.getAudioTracks());
+            self.set('developer.stream', stream);
+          },
+          oncleanup: function() {
+            self.log('join oncleanup');
+          },
+          detached: function() {
+            self.log('publish detached');
+            self.set('developer.handle', null);
+          }
+        });
+      },
+
+      unpublish: function(){
+        var self = this;
+        if(self.developer.handle){
+          if(self.developer.joined){
+            self.developer.handle.send({
+              message: {
+                request: "unpublish",
+              }
+            });
+          }
+          self.developer.handle.hangup(true);
+          self.developer.handle.detach();
+          self.set('developer.handle', null);
+        }
+        //
+        self.set('developer.stream', null);
+      },
+
+      _hideElement: function(video,audio){
+        return !(video || audio);
+      }
+
+    });
+  </script>
+</dom-module>

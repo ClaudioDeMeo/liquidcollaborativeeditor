@@ -6,7 +6,7 @@
   "author": "Claudio De Meo <demeoclaudio92@gmail.com>",
   "scripts": {
     "test": "mocha",
-    "debug": "DEBUG=server* supervisor -i test -- server.js"
+    "debug": "DEBUG=server* supervisor -i projects -- server.js"
   },
   "license": "ISC",
   "dependencies": {

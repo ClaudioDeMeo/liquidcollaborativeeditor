@@ -2,7 +2,8 @@ const debug = require('debug')('server:socket');
 const fs = require('fs');
 const config = require('./config');
 const prefix = config.PROJECTFOLDER;
-var path = require('path');
+const path = require('path');
+const compiler = require('./compiler.js');
 
 module.exports = function(server){
 
@@ -60,6 +61,7 @@ module.exports = function(server){
   io.on('connection', function(socket){
     var fpath = null;
     var writer = "";
+    var executor = null;
     debug("new client: " + socket.id);
 
     //utils function
@@ -188,6 +190,55 @@ module.exports = function(server){
           delete fhistory[socket.room];
         }
         // socket.broadcast.to(socket.room).emit('error', {error: 'file not found'});
+      }
+    });
+
+    socket.on('compile', function(msg){
+      compiler.compile(msg)
+      .then(function(proc){
+        if (proc.default){
+          proc.default.stdout.on('data', function(data){
+            debug('compiler default output:', data);
+            socket.emit('compilerOutput', {default: data});
+          });
+        }
+        if (proc.custom){
+          proc.custom.stdout.on('data', function(data){
+            debug('compiler custom output:', data);
+            socket.emit('compilerOutput', {custom: data});
+          });
+        }
+      })
+      .catch(function(err){
+        debug('compiler error:', err);
+        socket.emit("compilerErorr", {error: err});
+      });
+    });
+
+    socket.on('run', function(msg){
+      compiler.execute(msg)
+      .then(function(proc){
+        executor = proc;
+        executor.stdout.on('data', function(data){
+          debug('exec output:', data);
+          socket.emit('execOutput', {output: data});
+        });
+        executor.stderr.on('data', function(data){
+          debug('exec output:', data);
+          socket.emit('execOutput', {error: data});
+        });
+      })
+      .catch(function(err){
+        debug('executor error:', err);
+        socket.emit("executorErorr", {error: err});
+      });
+    });
+
+    socket.on('execInput', function(msg){
+      if (executor){
+          
+      }else{
+        socket.emit("executorErorr", {error: 'process stopped'});
       }
     });
 

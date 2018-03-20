@@ -1,0 +1,44 @@
+{
+	"ada": {
+		"compiler": {
+			"default": "gcc",
+			"windows": {
+				"x32": "/opt/mingw32/bin/i686-w64-mingw32-gcc",
+				"x64": "/opt/mingw64/bin/x86_64-w64-mingw32-gcc"
+			},
+			"linux": {
+				"x32": "gcc -m32",
+				"x64": "gcc"
+			}
+		}
+	},
+	"c_cpp": {
+		"compiler": {
+			"default": "gcc",
+			"windows": {
+				"x32": "/opt/mingw32/bin/i686-w64-mingw32-gcc",
+				"x64": "/opt/mingw64/bin/x86_64-w64-mingw32-gcc"
+			},
+			"linux": {
+				"x32": "gcc -m32",
+				"x64": "gcc"
+			}
+		}
+	},
+	"java": {
+		"compiler": {
+			"default": "gcj",
+			"windows": {
+				"x32": "/opt/mingw32/bin/i686-w64-mingw32-gcj",
+				"x64": "/opt/mingw64/bin/x86_64-w64-mingw32-gcj"
+			},
+			"linux": {
+				"x32": "gcc -m32",
+				"x64": "gcj"
+			}
+		}
+	},
+	"javascript": {
+		"interpreter": "node"
+	}
+}

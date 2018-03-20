@@ -9,6 +9,9 @@ module.exports = {
   //listo of project files
   ROOMLIST : __dirname + '/roomlist.json',
 
+  //file compiler config
+  COMPILER_FILE: __dirname + '/compiler-config.json',
+
   //file buffer length
   HISTORY_LENGTH : 1000,
 

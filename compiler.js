@@ -35,44 +35,22 @@ module.exports = {
     }
   },
 
-  execute : function(file,callback){
+  execute : function(file){
     const debug = require('debug')('executor');
+    const compiler_config = JSON.parse(fs.readFileSync(config.COMPILER_FILE).toString());
     //controllare se esiste file compilato .exe
-    if(fs.existsSync(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe'))){
-      console.log('in esecuzione...');
-      console.log(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe'));
-
-      //var child = spawn('docker', ['run', '-iv', path.join(prefix,file.room)+':/project', 'ubuntu:16.04', '/project/'+file.name.substring(0,file.name.lastIndexOf('.'))+'.exe']);
-      var comando = path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe');
-      //var child = spawn(comando, [], { stdio: 'inherit' });
-      var child = spawn(comando);
-      child.on('close',function(code,signal){
-        console.log('execute close with '+`code ${code} and signal ${signal}`);
-      });
-      // child.stdin.pipe(process.stdin);
-      // // child.stdout.pipe(process.stdout);
-      // //
-      child.stdout.on('data', (data) => {
-        console.log(`child stdout:\n${data}`);
-        // child.stdin.write('ciao\n');
-        callback(`${data}`);
-      });
-      // process.stdout.on('data', (data) => {
-      //   console.log(`process stdout:\n${data}`);
-      //   //process.stdin.write('ciao\n');
-      //   callback(`${data}`);
-      // });
-      // // //
-      // process.stderr.on('data', (data) => {
-      //   console.log(`process stderr:\n${data}`);
-      //   callback(`${data}`);
-      // });
-      // child.stdin.write('\n');
-      //process.stdin.pipe(child.stdin)
-
-    }else {
-      console.log('file eseguibile non trovato!')
+    if (compiler_config[file.language]){
+      if(fs.existsSync(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe'))){
+        if (compiler_config[file.language].compiler){
+          return Promise.resolve(spawn(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe')));
+        }else{//interpreter
+          return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
+        }
+      }else{
+        return Promise.reject('file not found');
+      }
+    }else{
+      return Promise.reject('can not execute ' + file.language);
     }
-    callback && callback(false);
   }
 }

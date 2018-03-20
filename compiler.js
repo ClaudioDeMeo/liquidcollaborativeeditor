@@ -27,8 +27,8 @@ module.exports = {
       var end = file.name.lastIndexOf('.');
       var fname = path.join(prefix,file.room,file.name.substring(0, end != -1 ? end : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe');
       return Promise.resolve({
-        default : defaultcmd ? spawn(defaultcmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null;
-        custom : cmd ? spawn(cmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null;
+        default : defaultcmd ? spawn(defaultcmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null,
+        custom : cmd ? spawn(cmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null
       });
     }else{
       return Promise.reject("compiler not found for " + file.lanugage);

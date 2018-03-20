@@ -46,7 +46,7 @@
       <hr>
       <paper-dialog-scrollable>
         <!-- FORM -->
-        <form id="form" method="post" enctype="multipart/form-data" action="/upload" hidden={{isnewfile}}>
+        <form id="form" method="post" enctype="multipart/form-data" action="/upload">
           <!-- FILES -->
           <input type="file" id="fileInput" name="files" value="" hidden multiple required></input>
           <!-- LANGUAGE -->
@@ -200,7 +200,7 @@
           self.getRoomList(function(result){
             self.roomlist = [];
             self.set("roomList", result.list.map(function(element){
-              return element.room;
+              return element.room.toString();
             }));
           });
         }, 200);

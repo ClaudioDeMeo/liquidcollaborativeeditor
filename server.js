@@ -165,7 +165,7 @@ app.post('/upload',function(req, res){
     language: "",
     room: "",
   };
-  var password;
+  var password = null;
   form.on('field',function(field,value){
     switch(field){
       case 'language':
@@ -176,18 +176,16 @@ app.post('/upload',function(req, res){
         form.uploadDir = path.join(prefix,value);
         break;
       case 'password':
-        password: value;
+        password = value;
         break;
     }
   });
   form.on('file', function(field, file) {
     var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
-    if (!rlist[fdata.room]){
-      rlist[fdata.room] = {
-        password: password
-      };
-    }
-    if (rlist[fdata.room].password == password){
+    var tempRoom = {
+      password: password,
+    };
+    if (tempRoom.password == password){
       if (!fs.existsSync(form.uploadDir)){
         fs.mkdirSync(form.uploadDir);
       }
@@ -203,8 +201,11 @@ app.post('/upload',function(req, res){
           fid = randomstring.generate();
         }while(flist[fid]);
         flist[fid] = fdata;
-        fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
         fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+        if (!rlist[fdata.room]){
+          rlist[fdata.room] = tempRoom;
+          fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
+        }
       }else{
         res.status(406);
         res.end("file already exist");

@@ -11,9 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.18.2",
+    "debug": "^2.6.9",
     "express": "^4.16.2",
     "formidable": "^1.1.1",
-    "debug": "^2.6.9",
     "fs": "0.0.1-security",
     "https": "^1.0.0",
     "randomstring": "^1.1.5",
@@ -21,6 +21,7 @@
     "socket.io-p2p-server": "^1.2.0"
   },
   "devDependencies": {
+    "fs-extra": "^5.0.0",
     "mocha": "^3.5.3",
     "supervisor": "^0.12.0",
     "webpack": "^2.7.0",

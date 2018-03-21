@@ -25,13 +25,23 @@ module.exports = {
         }
       }
       var end = file.name.lastIndexOf('.');
+      var defaultFname = path.join(prefix,file.room,file.name.substring(0, end != -1 ? end : file.name.length) + '.exe');
       var fname = path.join(prefix,file.room,file.name.substring(0, end != -1 ? end : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe');
-      var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
-      flist[file.fid].compiled = fname;
-      fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+      var defaultProcess = defaultcmd ? spawn(defaultcmd,[path.join(prefix,file.room,file.name),'-o', defaultFname]) : null;
+      var custom = cmd ? spawn(cmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null;
+      // if (default){
+      //   default.on('exit', function(code){
+      //     //IDEA comprimere file per download
+      //   });
+      // }
+      // if (custom){
+      //   custom.on('exit', function(code){
+      //     //IDEA comprimere file per download
+      //   });
+      // }
       return Promise.resolve({
-        default : defaultcmd ? spawn(defaultcmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null,
-        custom : cmd ? spawn(cmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null
+        default : defaultProcess,
+        custom : custom
       });
     }else{
       return Promise.reject("compiler not found for " + file.lanugage);
@@ -45,7 +55,7 @@ module.exports = {
     if (compiler_config[file.language]){
       if(fs.existsSync(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe'))){
         if (compiler_config[file.language].compiler){
-          return Promise.resolve(spawn(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe')));
+          return Promise.resolve(spawn(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length)+'.exe')));
         }else{//interpreter
           return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
         }

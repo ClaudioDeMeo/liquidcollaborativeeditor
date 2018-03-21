@@ -1,6 +1,7 @@
 const debug = require('debug')('server');
 const config = require('./config');
 const fs = require('fs');
+const fse = require('fs-extra')
 const formidable = require('formidable');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -234,13 +235,11 @@ app.post('/delete', function(req,res){
       var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
       if (fs.existsSync(file)){
         fs.unlinkSync(file);
-        var fileexe = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].compiled);
-        if (flist[req.body.fid].compiled && fs.existsSync(fileexe)){
-          fs.unlinkSync(fileexe);
-        }
-        if(fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).length == 0){
-          fs.rmdirSync(path.join(prefix,flist[req.body.fid].room));
-        }
+        fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).forEach(function(element){
+          if (element.substring(element.lenght-4,element.lenght) == '.exe'){
+            fs.unlinkSync(path.join(prefix, flist[req.body.fid].room, element));
+          }
+        });
       }
       var room = flist[req.body.fid].room;
       delete flist[req.body.fid];
@@ -250,6 +249,7 @@ app.post('/delete', function(req,res){
         return element[1] && element[1].room == room;
       }).length;
       if (finRoom == 0){
+        fse.removeSync(path.join(prefix, room));
         delete rlist[room];
       }
       fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
@@ -265,13 +265,14 @@ app.post('/delete', function(req,res){
   }
 });
 
-app.post('/downloadexe/:fid', function(req,res){
+app.post('/downloadexe', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
-  var fid = req.params.fid;
-  if (flist[fid]){
-    if (auth(flist[fid].room,req.body.password)){
-      var fpath = path.join(prefix,flist[fid].room,flist[fid].compiled);
-      res.download(fpath,flist[fid].compiled,function(err){
+  var file = req.body.file;
+  var fname = file.name.substring(0, file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe';
+  var fpath = path.join(prefix, flist[fid].room, fname);
+  if (flist[file.fid] && fs.existsSync(fpath)){
+    if (auth(flist[file.fid].room,req.body.password)){
+      res.download(fpath, fname, function(err){
         if (err){
           res.status(500);
           res.end("Error");

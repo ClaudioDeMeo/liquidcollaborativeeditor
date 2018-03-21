@@ -85,7 +85,6 @@ app.post('/download/:fid', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var fid = req.params.fid;
   if (flist[fid]){
-    debug("room:",flist[fid].room,"password:",req.body.password);
     if (auth(flist[fid].room,req.body.password)){
       var fpath = path.join(prefix,flist[fid].room,flist[fid].name);
       if (!fs.existsSync(fpath)){
@@ -235,6 +234,10 @@ app.post('/delete', function(req,res){
       var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
       if (fs.existsSync(file)){
         fs.unlinkSync(file);
+        var fileexe = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].compiled;
+        if (flist[req.body.fid].compiled && fs.existsSync(fileexe)){
+          fs.unlinkSync(fileexe);
+        }
         if(fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).length == 0){
           fs.rmdirSync(path.join(prefix,flist[req.body.fid].room));
         }
@@ -259,6 +262,31 @@ app.post('/delete', function(req,res){
   }else{
     res.status(404);
     res.end("File not Found");
+  }
+});
+
+app.post('/downloadexe/:fid', function(req,res){
+  var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
+  var fid = req.params.fid;
+  if (flist[fid]){
+    if (auth(flist[fid].room,req.body.password)){
+      var fpath = path.join(prefix,flist[fid].room,flist[fid].compiled);
+      res.download(fpath,flist[fid].compiled,function(err){
+        if (err){
+          res.status(500);
+          res.end("Error");
+        }else {
+          res.status(200);
+          res.end("Ok");
+        }
+      });
+    }else{
+      res.status(401);
+      res.end("Unauthorized");
+    }
+  }else{
+    res.status(404);
+    res.end("File not found");
   }
 });
 

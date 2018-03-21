@@ -236,7 +236,9 @@ module.exports = function(server){
 
     socket.on('execInput', function(msg){
       if (executor){
-          
+        executor.stdin.setEncoding('utf-8');
+        executor.stdin.write(msg + '\n');
+        executor.stdin.end();
       }else{
         socket.emit("executorErorr", {error: 'process stopped'});
       }

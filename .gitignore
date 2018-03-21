@@ -7,3 +7,5 @@ liquidproject/bower_components
 projects
 .Rhistory
 yarn-error.log
+filelist.json
+roomlist.json

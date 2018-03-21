@@ -194,13 +194,14 @@ module.exports = function(server){
     });
 
     socket.on('compile', function(msg){
-      compiler.compile(msg)
+      compiler.compile(msg.file)
       .then(function(proc){
         if (proc.default){
           proc.default.stdout.on('data', function(data){
             debug('compiler default output:', data);
             socket.emit('compilerOutput', {default: data});
           });
+          socket.broadcast.to(socket.room).emit('compilerOutput', {author: msg.author});
         }
         if (proc.custom){
           proc.custom.stdout.on('data', function(data){
@@ -216,7 +217,7 @@ module.exports = function(server){
     });
 
     socket.on('run', function(msg){
-      compiler.execute(msg)
+      compiler.execute(msg.file)
       .then(function(proc){
         executor = proc;
         executor.stdout.on('data', function(data){
@@ -237,7 +238,7 @@ module.exports = function(server){
     socket.on('execInput', function(msg){
       if (executor){
         executor.stdin.setEncoding('utf-8');
-        executor.stdin.write(msg + '\n');
+        executor.stdin.write(msg.input + '\n');
         executor.stdin.end();
       }else{
         socket.emit("executorErorr", {error: 'process stopped'});

@@ -59,6 +59,7 @@
         background-color: var(--primary-background-color);
         color: var(--primary-text-color);
         padding: 0px;
+        overflow-y: hidden;
       }
 
       #fontSize, #tabSpace {
@@ -123,10 +124,8 @@
               </template>
             </template>
           </paper-dropdown-input>
-
           <paper-input class="editorMenu"
             id="fontSize"
-
             name="fontsizeInput"
             type="number"
             placeholder="Font Size"
@@ -138,7 +137,6 @@
           </paper-input>
           <paper-input class="editorMenu"
             id="tabSpace"
-
             name="tabSpaceInput"
             type="number"
             placeholder="Tab Size"
@@ -149,6 +147,18 @@
           </paper-input>
           <span class="flex"></span>
 
+          <paper-icon-button id="compileBtn"
+            class="toolbarBtn"
+            icon="settings"
+            title="compile file"
+            on-tap="compile">
+          </paper-icon-button>
+          <paper-icon-button id="executeBtn"
+            class="toolbarBtn"
+            icon="av:play-arrow"
+            title="execute file"
+            on-tap="execute">
+          </paper-icon-button>
           <paper-dropdown-input id="languageSelector" class="editorMenu"
             label="Language"
             horizontal-align="right"

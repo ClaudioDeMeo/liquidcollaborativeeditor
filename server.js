@@ -234,7 +234,7 @@ app.post('/delete', function(req,res){
       var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
       if (fs.existsSync(file)){
         fs.unlinkSync(file);
-        var fileexe = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].compiled;
+        var fileexe = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].compiled);
         if (flist[req.body.fid].compiled && fs.existsSync(fileexe)){
           fs.unlinkSync(fileexe);
         }

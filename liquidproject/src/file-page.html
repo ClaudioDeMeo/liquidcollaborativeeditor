@@ -356,8 +356,6 @@
 
       initialization: function(){
         var self = this;
-        self.$.textEditor.editor.removeAllListeners('change');
-        self.$.textEditor.value = "";
         self.remoteBuffer = [];
         self.toVerify = null;
         self.toSend = [];
@@ -367,6 +365,8 @@
         self.socket = null;
         self.toVerify = null;
         self.file = null;
+        self.$.textEditor.editor.removeAllListeners('change');
+        self.$.textEditor.value = "";
       },
 
       goBack: function(){

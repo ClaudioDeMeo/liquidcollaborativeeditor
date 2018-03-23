@@ -372,6 +372,7 @@
       goBack: function(){
         var self = this;
         self.initialization();
+        self.mainApp().$$('room-page').ready();
         self.$.back.click();
       },
 

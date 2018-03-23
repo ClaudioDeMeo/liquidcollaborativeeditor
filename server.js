@@ -12,11 +12,12 @@ var path = require('path');
 var randomstring = require("randomstring");
 
 //run janus
-// const spawn = require('child_process').spawn;
-// var janus = spawn('janus');
-// janus.stdout.on('data', (data) => {
-//   debug(`${data}`);
-// });
+const spawn = require('child_process').spawn;
+var janus = spawn('janus');
+janus.stdout.on('data', function(data){
+  const debug = require('debug')('server:janus');
+  debug(`${data}`);
+});
 
 //server
 var http = null;
@@ -118,6 +119,7 @@ app.post('/newfile',function(req,res){
     language : req.body.language,
     room : req.body.room
   };
+  debug('new empty file request:',fdata.name, fdata.language, fdata.room);
   var password = req.body.password;
   if (!rlist[fdata.room]){
     rlist[fdata.room] = {
@@ -141,6 +143,7 @@ app.post('/newfile',function(req,res){
       fs.writeFileSync(path.join(prefix,fdata.room,fdata.name),"");
       fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
       fs.writeFileSync(config.FILELIST,JSON.stringify(flist));
+      debug('New Empty File created');
       res.status(200);
       res.end("File added");
     }else{
@@ -181,6 +184,7 @@ app.post('/upload',function(req, res){
     }
   });
   form.on('file', function(field, file) {
+    debug('upload file request:', file.name, fdata.language, fdata.room)
     var rlist = JSON.parse(fs.readFileSync(config.ROOMLIST).toString());
     var tempRoom = {
       password: password,
@@ -191,6 +195,7 @@ app.post('/upload',function(req, res){
       }
       fs.rename(file.path, path.join(form.uploadDir, file.name));
       fdata.name = file.name;
+      debug('new file created');
       var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
       var index = Object.keys(flist).find(function(element){
         return (flist[element].name == fdata.name) && flist[element].room == fdata.room;
@@ -233,11 +238,14 @@ app.post('/delete', function(req,res){
   if (flist[req.body.fid]){
     if (auth(flist[req.body.fid].room,req.body.password)){
       var file = path.join(prefix,flist[req.body.fid].room,flist[req.body.fid].name);
+      debug('request for delete file:', file);
       if (fs.existsSync(file)){
         fs.unlinkSync(file);
+        debug(file,'deleted');
         fs.readdirSync(path.join(prefix,flist[req.body.fid].room)).forEach(function(element){
           if (element.substring(element.lenght-4,element.lenght) == '.exe'){
             fs.unlinkSync(path.join(prefix, flist[req.body.fid].room, element));
+            debug(element,' EXE deleted');
           }
         });
       }
@@ -251,6 +259,7 @@ app.post('/delete', function(req,res){
       if (finRoom == 0){
         fse.removeSync(path.join(prefix, room));
         delete rlist[room];
+        debug(room, 'deleted');
       }
       fs.writeFileSync(config.ROOMLIST,JSON.stringify(rlist));
       res.status(200);

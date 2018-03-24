@@ -37,8 +37,8 @@
 
     <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
       <div class="layout horizontal center">
-        <h2 hidden={{isnewfile}}>Upload File</h2>
-        <h2 hidden={{!isnewfile}}>New File</h2>
+        <h2 hidden="{{isnewfile}}">Upload File</h2>
+        <h2 hidden="{{!isnewfile}}">New File</h2>
         <span class="flex"></span>
         <paper-icon-button title="Dismiss" icon="close" dialog-dismiss></paper-icon-button>
       </div>
@@ -70,8 +70,8 @@
         label="File"
         type="text"
         placeholder="Insert File Name"
-        value={{fileName}}
-        hidden={{!isnewfile}}>
+        value="{{fileName}}"
+        hidden="{{!isnewfile}}">
         </paper-input>
 
         <!-- LANGUAGE -->

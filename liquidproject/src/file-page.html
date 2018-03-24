@@ -18,6 +18,7 @@
 
 <link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
 <link rel="import" href="base/utils-behavior.html">
+<link rel="import" href="dialog/file-downloader.html">
 
 <dom-module id="file-page">
   <template>
@@ -589,15 +590,16 @@
 
       onDownloadFile: function(e){
         var self = this;
-        var fname = e.currentTarget.fname;
-        var a = document.createElement("a");
-        a.style = "display: none";
-        var blob = new Blob([self.$.textEditor.editor.getValue()], {type: 'text/plain'});
-        var url = window.URL.createObjectURL(blob);
-        a.href = url;
-        a.download = fname;
-        a.click();
-        window.URL.revokeObjectURL(url);
+        DialogDownload();
+        // var fname = e.currentTarget.fname;
+        // var a = document.createElement("a");
+        // a.style = "display: none";
+        // var blob = new Blob([self.$.textEditor.editor.getValue()], {type: 'text/plain'});
+        // var url = window.URL.createObjectURL(blob);
+        // a.href = url;
+        // a.download = fname;
+        // a.click();
+        // window.URL.revokeObjectURL(url);
       },
 
       _getBrightTheme: function(theme){

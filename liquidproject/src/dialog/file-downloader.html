@@ -1,0 +1,231 @@
+<!--
+@license
+-->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
+<link rel="import" href="../../bower_components/paper-radio-group/paper-radio-group.html">
+
+<link rel="import" href="../base/utils-behavior.html">
+
+<dom-module id="file-downloader">
+  <template>
+    <style include="shared-styles">
+
+      #filesBtn{
+        margin-top: 10px;
+      }
+
+      paper-dialog-scrollable{
+        margin-top: 0px;
+      }
+
+      paper-dropdown-input{
+        --paper-input-container-input-color: white;
+        --paper-listbox-background-color: white;
+      }
+
+      #fileError{
+        margin: 0px;
+        color: red;
+      }
+    </style>
+
+    <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
+      <div class="layout horizontal center">
+        <h2>Download File</h2>
+        <span class="flex"></span>
+        <paper-icon-button title="Dismiss" icon="close" dialog-dismiss></paper-icon-button>
+      </div>
+      <hr>
+      <paper-dialog-scrollable>
+
+        <!-- FILE TYPE -->
+        <paper-radio-group selected="{{type}}">
+          <paper-radio-button name="source">Source code</paper-radio-button>
+          <paper-radio-button name="binary">Binary file</paper-radio-button>
+        </paper-radio-group>
+
+        <!-- OPTIONS -->
+        <div hidden="[[eq(type,'source')]]">
+          <paper-dropdown-menu id="osSelector"
+            name="os"
+            label="Operative System">
+            <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{os}}">
+              <paper-item name="linux">Linux</paper-item>
+              <paper-item name="windows">Windows</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+          <paper-dropdown-menu id="archSelector"
+            name="arch"
+            label="architecture">
+            <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{arch}}">
+              <paper-item name="x64">x64</paper-item>
+              <paper-item name="x32">x32</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+        </div>
+
+      </paper-dialog-scrollable>
+      <hr>
+      <div class="buttons">
+        <paper-button raised dialog-dismiss>
+          <iron-icon icon="close"></iron-icon>
+          <span>Cancel</span>
+        </paper-button>
+        <paper-button id="actionButton" on-tap="submit" raised autofocus>
+          <iron-icon icon="check"></iron-icon>
+          <span>Ok</span>
+        </paper-button>
+      </div>
+    </paper-dialog>
+  </template>
+</dom-module>
+<script>
+  "use strict";
+  Polymer({
+      is: 'file-downloader',
+
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+
+      properties: {
+        type: {
+          type: String,
+          value: "source",
+          notify: true,
+        },
+        os: {
+          type: String,
+          value: 'linux',
+          notify: true,
+          // observer: "_checkInput",
+        },
+        arch: {
+          type: String,
+          value: 'x64',
+          notify: true,
+          // observer: "_checkInput",
+        },
+
+      },
+
+      onOpen: function(){
+        var self = this;
+        setTimeout(function(){
+          self.$.dialog.notifyResize();
+        }, 100);
+      },
+
+      onCancel: function(e){
+        var self = this;
+        self.log('onCancel', e.detail);
+        if(e.detail.confirmed === undefined){
+          e.preventDefault();
+          self.$.dialog.notifyResize();
+          return;
+        }
+        var result = false;
+        self.fire('cancel', {detail: result});
+        this.remove();
+      },
+
+      submit: function(e){
+        var self = this;
+        self.log('submit', e.detail);
+        self.getRoomList(function(result){
+          self.roomlist = [];
+          self.set("roomList", result.list.map(function(element){
+            return element.room;
+          }));
+          var index = self.roomList.find(function(element){
+            return element == self.selectedRoom;
+          });
+          if (index==undefined){//if the room doesn't exist create new one
+            self.videoroom.send({
+              message: {
+                request: "create",
+                permanent: true,
+                room: parseInt(self.selectedRoom),
+                pin: (self.roomPassword != "") ? self.roomPassword : null,
+                secret: (self.roomPassword != "") ? self.roomPassword : null,
+                is_private: false,
+                publishers : 10,
+                bitrate: 128000
+              },
+              success: function(result){
+          			self.log("Room created");
+                self.show_info("Room " + self.selectedRoom + " created");
+          		},
+          		error: function(cause){
+          			self.log("Request create error because: " + cause);
+                self.show_error("Create Room error: " + cause);
+          		}
+            });
+          }
+        });
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function(){
+          if(this.readyState == 4 && (this.status == 0 || this.status == 406)){  //ERROR
+            self.log("upload File error");
+            self.$.fileError.hidden = false;
+          }else if (this.readyState == 4 && this.status == 200){
+            var result = true;
+            self.show_info("File createt on the server")
+            self.fire('submit', { detail: result });
+            self.$.dialog.close();
+            self.remove();
+          }else if(this.status == 401){
+            self.show_error("Wrong password");
+          }
+        };
+        request.error = function(error){
+          self.log("upload File error: ",error);
+        };
+        if (!self.isnewfile){
+          var data = new FormData(self.$.form);
+          request.open('POST','/upload',true);
+          request.send(data);
+        }else{
+          var data = {
+            name : self.fileName,
+            language : self.selectedLanguage,
+            room : self.selectedRoom,
+            password: self.roomPassword
+          };
+          request.open('POST','/newfile',true);
+          request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+          request.send(JSON.stringify(data));
+        }
+      },
+
+  });
+
+  function DialogDownload(cb){
+    var el = document.createElement('file-downloader');
+    el.addEventListener('submit', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    el.addEventListener('cancel', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    document.querySelector('body').appendChild(el);
+    return el;
+  }
+</script>

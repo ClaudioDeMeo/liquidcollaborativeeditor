@@ -200,6 +200,7 @@
 
       ready: function(){
         var self = this;
+        self.file = null;
         self.nameInputElement = self.$.nameInput;
         self.passwordInputElement = self.$.passwordInput;
         self.roomcandidate = self.roomcandidate || self.route.path.substring(self.route.path.lastIndexOf('/') + 1);

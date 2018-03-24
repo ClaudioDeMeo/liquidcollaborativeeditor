@@ -236,6 +236,7 @@
         if (page == "home"){
           this.room = null;
         }
+        this.load = true;
         var resolvedPageUrl = this.resolveUrl(page + '-page.html');
         Polymer.importHref(
             resolvedPageUrl,

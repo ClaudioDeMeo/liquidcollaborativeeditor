@@ -59,16 +59,18 @@
             name="os"
             label="Operative System">
             <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{os}}">
-              <paper-item name="linux">Linux</paper-item>
-              <paper-item name="windows">Windows</paper-item>
+              <template is="dom-repeat" items="[[osList]]">
+                <paper-item name="[[item.name]]">[[item.value]]</paper-item>
+              </template>
             </paper-listbox>
           </paper-dropdown-menu>
           <paper-dropdown-menu id="archSelector"
             name="arch"
             label="architecture">
             <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{arch}}">
-              <paper-item name="x64">x64</paper-item>
-              <paper-item name="x32">x32</paper-item>
+              <template is="dom-repeat" items="[[archList]]">
+                <paper-item name="[[item.name]]">[[item.value]]</paper-item>
+              </template>
             </paper-listbox>
           </paper-dropdown-menu>
         </div>
@@ -107,14 +109,38 @@
           type: String,
           value: 'linux',
           notify: true,
-          // observer: "_checkInput",
+        },
+        osList: {
+          type: Array,
+          value: [{
+            name: 'linux',
+            value: 'Linux'
+            },
+            {
+              name: 'windows',
+              value: 'Windows'
+            }
+          ],
+          notify: true
         },
         arch: {
           type: String,
           value: 'x64',
           notify: true,
-          // observer: "_checkInput",
         },
+        archList: {
+          type: Array,
+          value: [{
+            name: 'x64',
+            value: 'x64'
+            },
+            {
+              name: 'x32',
+              value: 'x32'
+            }
+          ],
+          notify: true
+        }
 
       },
 
@@ -141,76 +167,59 @@
       submit: function(e){
         var self = this;
         self.log('submit', e.detail);
-        self.getRoomList(function(result){
-          self.roomlist = [];
-          self.set("roomList", result.list.map(function(element){
-            return element.room;
-          }));
-          var index = self.roomList.find(function(element){
-            return element == self.selectedRoom;
-          });
-          if (index==undefined){//if the room doesn't exist create new one
-            self.videoroom.send({
-              message: {
-                request: "create",
-                permanent: true,
-                room: parseInt(self.selectedRoom),
-                pin: (self.roomPassword != "") ? self.roomPassword : null,
-                secret: (self.roomPassword != "") ? self.roomPassword : null,
-                is_private: false,
-                publishers : 10,
-                bitrate: 128000
-              },
-              success: function(result){
-          			self.log("Room created");
-                self.show_info("Room " + self.selectedRoom + " created");
-          		},
-          		error: function(cause){
-          			self.log("Request create error because: " + cause);
-                self.show_error("Create Room error: " + cause);
-          		}
-            });
-          }
-        });
-        var request = new XMLHttpRequest();
-        request.onreadystatechange = function(){
-          if(this.readyState == 4 && (this.status == 0 || this.status == 406)){  //ERROR
-            self.log("upload File error");
-            self.$.fileError.hidden = false;
-          }else if (this.readyState == 4 && this.status == 200){
-            var result = true;
-            self.show_info("File createt on the server")
-            self.fire('submit', { detail: result });
+        if (self.type == "source"){
+          self.downloadFile(self.file.fid,self.file.name, function(){
+            self.fire('submit', { detail: true });
             self.$.dialog.close();
             self.remove();
-          }else if(this.status == 401){
-            self.show_error("Wrong password");
-          }
-        };
-        request.error = function(error){
-          self.log("upload File error: ",error);
-        };
-        if (!self.isnewfile){
-          var data = new FormData(self.$.form);
-          request.open('POST','/upload',true);
-          request.send(data);
+          });
         }else{
-          var data = {
-            name : self.fileName,
-            language : self.selectedLanguage,
-            room : self.selectedRoom,
-            password: self.roomPassword
+          var file = self.file;
+          file.os = self.os;
+          file.arch = self.arch;
+          var request = new XMLHttpRequest();
+          request.onload = function(e){
+            switch (this.status){
+              case 200:
+                var blob = new Blob([this.response], {type: 'application/octet-stream'});
+                var a = document.createElement("a");
+                a.style = "display: none";
+                var url = window.URL.createObjectURL(blob);
+                a.href = url;
+                a.download = file.name;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                self.fire('submit', { detail: true });
+                self.$.dialog.close();
+                self.remove();
+                break;
+              case 500:
+                self.log("download error");
+                break;
+              case 404:
+                self.show_error("Binary file not found");
+                break;
+              case 401:
+                self.log("Unauthorized");
+                break;
+            }
           };
-          request.open('POST','/newfile',true);
+          request.error = function(error){
+            self.log("downloadExeFile error: ",error);
+          };
+          request.open('POST','/downloadexe',true);
+          request.responseType = 'blob';
           request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-          request.send(JSON.stringify(data));
+          request.send(JSON.stringify({file: file, password: self.password}));
         }
       },
 
   });
 
-  function DialogDownload(cb){
+  function DialogDownload(file, cb){
     var el = document.createElement('file-downloader');
+    el.file = file;
+    el.password = document.querySelector('my-liquid-app').password;
     el.addEventListener('submit', function(e){
       if(e.defaultPrevented){
         return;

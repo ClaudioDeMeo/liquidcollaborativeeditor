@@ -11,6 +11,7 @@
 <link rel="import" href="../bower_components/iron-ajax/iron-request.html">
 
 <link rel="import" href="base/utils-behavior.html">
+<link rel="import" href="dialog/file-downloader.html">
 
 <dom-module id="room-page">
   <template>
@@ -132,8 +133,7 @@
                 <paper-icon-button
                 icon="file-download"
                 title="download"
-                fid="[[item.fid]]"
-                fname="[[item.name]]"
+                file="[[item]]"
                 on-tap="download">
                 </paper-icon-button>
                 <paper-icon-button
@@ -285,7 +285,8 @@
 
       download: function(e){
         var self = this;
-        self.downloadFile(e.currentTarget.fid,e.currentTarget.fname);
+        DialogDownload(e.currentTarget.file);
+        // self.downloadFile(e.currentTarget.fid,e.currentTarget.fname);
       },
 
       deleteFile: function(e){

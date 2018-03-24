@@ -15,6 +15,7 @@
 <link rel="import" href="../bower_components/paper-button/paper-button.html">
 <link rel="import" href="../bower_components/paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../bower_components/iron-ajax/iron-request.html">
+<link rel="import" href="../bower_components/resizable-panels/resizable-panels.html">
 
 <link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
 <link rel="import" href="base/utils-behavior.html">
@@ -24,9 +25,22 @@
   <template>
     <style include="shared-styles">
 
+      resizable-panels{
+        width: 100% !important;
+        height: 100% !important;
+        --resizable-panels-knob-size: 15px;
+        --resizable-panels-knob-color: #141516;
+        --resizable-panels-knob: {
+          z-index:1000;
+          top:0;
+          margin-bottom: 0px;
+        };
+      }
+
       juicy-ace-editor {
         width: 100%;
         height: 100%;
+        margin-bottom: 7px;
       }
 
       p {
@@ -80,6 +94,35 @@
         margin-top: 8px;
         min-height: 40px;
         min-width: 40px;
+      }
+
+      #htmlViewer{
+        width: 100%;
+        height: 100%;
+      }
+
+      #terminal{
+        background-color: black;
+        color: white;
+        padding-left: 4px;
+        overflow-y: auto;
+        height: 100%;
+      }
+
+      #userInput{
+        background-color: black;
+        color: white;
+        height: 24px;
+        border: none;
+        width: auto;
+        margin-left: 10px;
+        font-size: 16px;
+        position: relative;
+        top: -1px;
+      }
+
+      #userInput:focus{
+        outline: none !important;
       }
 
     </style>
@@ -175,15 +218,30 @@
           </paper-icon-button>
         </app-toolbar>
       </app-header>
-      <!-- CODE-EDITOR DEFINE -->
-      <juicy-ace-editor id="textEditor"
-        theme$="ace/theme/{{selectedTheme}}"
-        mode$="ace/mode/{{selectedLanguage}}"
-        fontsize$="{{fontSize}}px"
-        tabsize$="{{tabSize}}"
-        wrapmode="true"
-        readonly>
-      </juicy-ace-editor>
+      <resizable-panels vertical>
+        <!-- CODE-EDITOR DEFINE -->
+        <juicy-ace-editor id="textEditor"
+          theme$="ace/theme/{{selectedTheme}}"
+          mode$="ace/mode/{{selectedLanguage}}"
+          fontsize$="{{fontSize}}px"
+          tabsize$="{{tabSize}}"
+          wrapmode="true"
+          readonly>
+        </juicy-ace-editor>
+        <div>
+          <div id="terminal" class="layout vertical" hidden="[[eq(selectedLanguage,'html')]]">
+            <div id="terminalOutput"></div>
+            <div class="layout horizontal start wrap">
+              <span id="line">{{username}} ~ $    </span>
+              <iron-a11y-keys target="[[$.userInput]]" keys="up" on-keys-pressed="prevous"></iron-a11y-keys>
+              <iron-a11y-keys target="[[$.userInput]]" keys="enter" on-keys-pressed="terminalInput"></iron-a11y-keys>
+              <input id="userInput" type="text" class="flex"/>
+            </div>
+          </div>
+          <div id="htmlViewer" hidden="[[!eq(selectedLanguage,'html')]]"></div>
+        </div>
+      </resizable-panels>
+
     </app-header-layout>
 
   </template>
@@ -590,7 +648,7 @@
 
       onDownloadFile: function(e){
         var self = this;
-        DialogDownload();
+        DialogDownload(self.file);
         // var fname = e.currentTarget.fname;
         // var a = document.createElement("a");
         // a.style = "display: none";
@@ -609,6 +667,32 @@
       _getDarkTheme: function(theme){
         return theme.slice(15)
       },
+
+      terminalInput: function(){
+        var self = this;
+        if (self.$.userInput.value!="clear"){
+          self.$.terminalOutput.innerHTML+=self.$.line.innerHTML + "&nbsp;" + self.$.userInput.value + '<br>';
+          try {
+            console.oldlog=console.log;
+            console.log = function(){
+              console.oldlog(arguments.toString());
+              return arguments.toString();
+            }
+            self.$.terminalOutput.innerHTML+=eval(self.$.userInput.value) + '<br>';
+          } catch (e) {
+            self.$.terminalOutput.innerHTML+=e + '<br>';
+          }
+          self.$.userInput.value = "";
+        }else{
+          self.$.terminalOutput.innerHTML = "";
+          self.$.userInput.value = "";
+        }
+      },
+
+      prevous: function(){
+        var self= this;
+
+      }
 
     });
   </script>

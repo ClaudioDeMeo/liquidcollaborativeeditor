@@ -166,7 +166,7 @@ app.post('/upload',function(req, res){
   var fdata = {
     name: "",
     language: "",
-    room: "",
+    room: ""
   };
   var password = null;
   form.on('field',function(field,value){
@@ -278,7 +278,7 @@ app.post('/downloadexe', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var file = req.body.file;
   var fname = file.name.substring(0, file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe';
-  var fpath = path.join(prefix, flist[fid].room, fname);
+  var fpath = path.join(prefix, flist[file.fid].room, fname);
   if (flist[file.fid] && fs.existsSync(fpath)){
     if (auth(flist[file.fid].room,req.body.password)){
       res.download(fpath, fname, function(err){

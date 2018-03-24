@@ -676,6 +676,14 @@
         return a == b;
       },
 
+      or: function(a, b){
+        return a || b;
+      },
+
+      and: function(a, b){
+        return a && b;
+      },
+
       request: function(url, method, data){
         var self = this;
         var request = document.createElement('iron-request');
@@ -703,7 +711,7 @@
         });
       },
 
-      downloadFile: function(fid, fname){
+      downloadFile: function(fid, fname, cb){
         var self = this;
         var request = new XMLHttpRequest();
         request.onload = function(e){
@@ -717,6 +725,7 @@
               a.download = fname;
               a.click();
               window.URL.revokeObjectURL(url);
+              cb && cb();
               break;
             case 500:
               self.log("download error");

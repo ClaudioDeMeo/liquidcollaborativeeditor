@@ -28,6 +28,9 @@ module.exports = {
       var defaultFname = path.join(prefix,file.room,file.name.substring(0, end != -1 ? end : file.name.length) + '.exe');
       var fname = path.join(prefix,file.room,file.name.substring(0, end != -1 ? end : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe');
       var defaultProcess = defaultcmd ? spawn(defaultcmd,[path.join(prefix,file.room,file.name),'-o', defaultFname]) : null;
+      if (file.os && file.os=='linux' && file.arch && file.arch=='x64'){
+        cmd = null;
+      }
       var custom = cmd ? spawn(cmd,[path.join(prefix,file.room,file.name),'-o',fname]) : null;
       // if (default){
       //   default.on('exit', function(code){
@@ -44,7 +47,7 @@ module.exports = {
         custom : custom
       });
     }else{
-      return Promise.reject("compiler not found for " + file.lanugage);
+      return Promise.reject("compiler not found for " + file.language);
     }
   },
 

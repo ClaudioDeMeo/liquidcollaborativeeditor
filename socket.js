@@ -194,6 +194,7 @@ module.exports = function(server){
     });
 
     socket.on('compile', function(msg){
+      debug('request for compile:', msg);
       compiler.compile(msg.file)
       .then(function(proc){
         if (proc.default){
@@ -201,12 +202,20 @@ module.exports = function(server){
             debug('compiler default output:', data);
             socket.emit('compilerOutput', {default: data});
           });
-          socket.broadcast.to(socket.room).emit('compilerOutput', {author: msg.author});
+          proc.default.stderr.on('data', function(err){
+            debug('compiler default error:', err);
+            socket.emit('compilerError', {error: err});
+          });
+          socket.broadcast.to(socket.room).emit('compilerEvent', {author: msg.author});
         }
         if (proc.custom){
           proc.custom.stdout.on('data', function(data){
             debug('compiler custom output:', data);
             socket.emit('compilerOutput', {custom: data});
+          });
+          proc.default.stderr.on('data', function(err){
+            debug('compiler default error:', err);
+            socket.emit('compilerError', {error: err});
           });
         }
       })

@@ -1,0 +1,194 @@
+<!--
+@license
+-->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/paper-listbox/paper-listbox.html">
+<link rel="import" href="../../bower_components/paper-radio-button/paper-radio-button.html">
+<link rel="import" href="../../bower_components/paper-radio-group/paper-radio-group.html">
+
+<link rel="import" href="../base/utils-behavior.html">
+
+<dom-module id="file-compiler">
+  <template>
+    <style include="shared-styles">
+
+      #filesBtn{
+        margin-top: 10px;
+      }
+
+      paper-dialog-scrollable{
+        margin-top: 0px;
+      }
+
+      paper-dropdown-input{
+        --paper-input-container-input-color: white;
+        --paper-listbox-background-color: white;
+      }
+
+      #fileError{
+        margin: 0px;
+        color: red;
+      }
+    </style>
+
+    <paper-dialog id="dialog" modal opened on-iron-overlay-opened="onOpen" on-iron-overlay-closed="onCancel">
+      <div class="layout horizontal center">
+        <h2>Compile File</h2>
+        <span class="flex"></span>
+        <paper-icon-button title="Dismiss" icon="close" dialog-dismiss></paper-icon-button>
+      </div>
+      <hr>
+      <paper-dialog-scrollable>
+
+        <!-- OPTIONS -->
+        <paper-dropdown-menu id="osSelector"
+          name="os"
+          label="Operative System">
+          <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{os}}">
+            <template is="dom-repeat" items="[[osList]]">
+              <paper-item name="[[item.name]]">[[item.value]]</paper-item>
+            </template>
+          </paper-listbox>
+        </paper-dropdown-menu>
+        <paper-dropdown-menu id="archSelector"
+          name="arch"
+          label="architecture">
+          <paper-listbox slot="dropdown-content" attr-for-selected="name" selected="{{arch}}">
+            <template is="dom-repeat" items="[[archList]]">
+              <paper-item name="[[item.name]]">[[item.value]]</paper-item>
+            </template>
+          </paper-listbox>
+        </paper-dropdown-menu>
+
+      </paper-dialog-scrollable>
+      <hr>
+      <div class="buttons">
+        <paper-button raised dialog-dismiss>
+          <iron-icon icon="close"></iron-icon>
+          <span>Cancel</span>
+        </paper-button>
+        <paper-button id="actionButton" on-tap="submit" raised autofocus>
+          <iron-icon icon="check"></iron-icon>
+          <span>Ok</span>
+        </paper-button>
+      </div>
+    </paper-dialog>
+  </template>
+</dom-module>
+<script>
+  "use strict";
+  Polymer({
+      is: 'file-compiler',
+
+      behaviors: [
+        Polymer.UtilsBehavior,
+      ],
+
+      properties: {
+        socket: {
+          type: Object,
+          value: null,
+          notify: true,
+        },
+        os: {
+          type: String,
+          value: 'linux',
+          notify: true,
+        },
+        osList: {
+          type: Array,
+          value: [{
+            name: 'linux',
+            value: 'Linux'
+            },
+            {
+              name: 'windows',
+              value: 'Windows'
+            }
+          ],
+          notify: true
+        },
+        arch: {
+          type: String,
+          value: 'x64',
+          notify: true,
+        },
+        archList: {
+          type: Array,
+          value: [{
+            name: 'x64',
+            value: 'x64'
+            },
+            {
+              name: 'x32',
+              value: 'x32'
+            }
+          ],
+          notify: true
+        }
+
+      },
+
+      onOpen: function(){
+        var self = this;
+        setTimeout(function(){
+          self.$.dialog.notifyResize();
+        }, 100);
+      },
+
+      onCancel: function(e){
+        var self = this;
+        self.log('onCancel', e.detail);
+        if(e.detail.confirmed === undefined){
+          e.preventDefault();
+          self.$.dialog.notifyResize();
+          return;
+        }
+        var result = false;
+        self.fire('cancel', {detail: result});
+        this.remove();
+      },
+
+      submit: function(e){
+        var self = this;
+        self.log('submit', e.detail);
+        var file = self.file;
+        file.os = self.os;
+        file.arch = self.arch;
+        self.fire('submit', { detail: {file: file} });
+        self.$.dialog.close();
+        self.remove();
+      },
+
+  });
+
+  function DialogCompile(file, socket, cb){
+    var el = document.createElement('file-compiler');
+    el.file = file;
+    el.socket = socket;
+    el.password = document.querySelector('my-liquid-app').password;
+    el.addEventListener('submit', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    el.addEventListener('cancel', function(e){
+      if(e.defaultPrevented){
+        return;
+      }
+      cb && cb(e.detail);
+      el.remove();
+    });
+    document.querySelector('body').appendChild(el);
+    return el;
+  }
+</script>

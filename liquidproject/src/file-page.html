@@ -20,6 +20,8 @@
 <link rel="import" href="../bower_components/juicy-ace-editor/juicy-ace-editor.html">
 <link rel="import" href="base/utils-behavior.html">
 <link rel="import" href="dialog/file-downloader.html">
+<link rel="import" href="dialog/file-compiler.html">
+<link rel="import" href="console-element.html">
 
 <dom-module id="file-page">
   <template>
@@ -40,6 +42,7 @@
       juicy-ace-editor {
         width: 100%;
         height: 100%;
+        /* min-height: 50%; */
         margin-bottom: 7px;
       }
 
@@ -94,35 +97,6 @@
         margin-top: 8px;
         min-height: 40px;
         min-width: 40px;
-      }
-
-      #htmlViewer{
-        width: 100%;
-        height: 100%;
-      }
-
-      #terminal{
-        background-color: black;
-        color: white;
-        padding-left: 4px;
-        overflow-y: auto;
-        height: 100%;
-      }
-
-      #userInput{
-        background-color: black;
-        color: white;
-        height: 24px;
-        border: none;
-        width: auto;
-        margin-left: 10px;
-        font-size: 16px;
-        position: relative;
-        top: -1px;
-      }
-
-      #userInput:focus{
-        outline: none !important;
       }
 
     </style>
@@ -185,7 +159,7 @@
             placeholder="Tab Size"
             min="1"
             max="10"
-            value="{{tabSize}}"><!-- label="Tab Space" -->
+            value="{{tabSize}}">
             <iron-icon icon="editor:format-indent-increase" slot="prefix"></iron-icon>
           </paper-input>
           <span class="flex"></span>
@@ -228,18 +202,10 @@
           wrapmode="true"
           readonly>
         </juicy-ace-editor>
-        <div>
-          <div id="terminal" class="layout vertical" hidden="[[eq(selectedLanguage,'html')]]">
-            <div id="terminalOutput"></div>
-            <div class="layout horizontal start wrap">
-              <span id="line">{{username}} ~ $    </span>
-              <iron-a11y-keys target="[[$.userInput]]" keys="up" on-keys-pressed="prevous"></iron-a11y-keys>
-              <iron-a11y-keys target="[[$.userInput]]" keys="enter" on-keys-pressed="terminalInput"></iron-a11y-keys>
-              <input id="userInput" type="text" class="flex"/>
-            </div>
-          </div>
-          <div id="htmlViewer" hidden="[[!eq(selectedLanguage,'html')]]"></div>
-        </div>
+        <console-element id="console"
+          user="[[username]]"
+          htmlmode="[[eq(selectedLanguage,'html')]]">
+        </console-element>
       </resizable-panels>
 
     </app-header-layout>
@@ -281,6 +247,7 @@
         };
         _remove(range);
       }
+      self.$.console.render = self.$.textEditor.value;
     }
 
     //utils function to insert in editor
@@ -289,6 +256,7 @@
       self.$.textEditor.editor.removeAllListeners('change');
       self.$.textEditor.editor.session.insert(position,text);
       self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
+      self.$.console.render = self.$.textEditor.value;
     }
 
     //utils function to remove in editor
@@ -297,6 +265,7 @@
       self.$.textEditor.editor.removeAllListeners('change');
       self.$.textEditor.editor.session.remove(range);
       self.$.textEditor.editor.on('change',_onDataChanged);//IDEA se c'è qualcosa nel buffer to send invia
+      self.$.console.render = self.$.textEditor.value;
     }
 
     Polymer({
@@ -366,6 +335,16 @@
           value: 2,
           notify: true,
         },
+        history: {
+          type: Array,
+          value: function(){return [];},
+          notify: true,
+        },
+        historyIndex: {
+          type: Number,
+          value: 1,
+          notify: true,
+        }
       },
 
       observers: [
@@ -375,6 +354,7 @@
       ready: function() {
         var self = this;
         self.$.textEditor.editor.$blockScrolling = Infinity;
+        self.$.console.html = self.$.textEditor.editor.value;
         if (self.username == ""){
           self.username = self.getCookie("username");
           if (self.username == ""){
@@ -415,13 +395,13 @@
 
       initialization: function(){
         var self = this;
+        self.socket && self.socket.close()
+        self.socket = null;
         self.remoteBuffer = [];
         self.toVerify = null;
         self.toSend = [];
         self.lastTimestamp = 0;
         self.revision = -1;
-        self.socket && self.socket.close();
-        self.socket = null;
         self.toVerify = null;
         self.file = null;
         self.$.textEditor.editor.removeAllListeners('change');
@@ -431,7 +411,7 @@
       goBack: function(){
         var self = this;
         self.initialization();
-        self.mainApp().$$('room-page').ready();
+        self.mainApp().$$('room-page').ready && self.mainApp().$$('room-page').ready();
         self.$.back.click();
       },
 
@@ -451,6 +431,7 @@
         var self = this;
         //init socket
         self.socket = io(socketServer);
+        self.$.console.socket = self.socket;
         self.socket.on('disconnect',function(e){
           self.log(e);
           self.$.textEditor.setAttribute('readonly',true);
@@ -583,6 +564,7 @@
             var reader = new FileReader();
             reader.addEventListener("loadend", function(e) {
               self.$.textEditor.editor.insert(e.currentTarget.result);
+              self.$.console.render = self.$.textEditor.value;
               self.$.textEditor.editor.on('change',_onDataChanged);
               self.$.textEditor.removeAttribute("readonly");
               while(self.remoteBuffer.length > 0){
@@ -649,15 +631,18 @@
       onDownloadFile: function(e){
         var self = this;
         DialogDownload(self.file);
-        // var fname = e.currentTarget.fname;
-        // var a = document.createElement("a");
-        // a.style = "display: none";
-        // var blob = new Blob([self.$.textEditor.editor.getValue()], {type: 'text/plain'});
-        // var url = window.URL.createObjectURL(blob);
-        // a.href = url;
-        // a.download = fname;
-        // a.click();
-        // window.URL.revokeObjectURL(url);
+      },
+
+      compile: function(){
+        var self = this;
+        if (self.socket){
+          DialogCompile(self.file, self.socket, function(result){
+            if (result){
+              self.socket.emit('compile',{file: result.detail.file});
+              self.$.console.newLine('compile');
+            }
+          });
+        }
       },
 
       _getBrightTheme: function(theme){
@@ -667,32 +652,6 @@
       _getDarkTheme: function(theme){
         return theme.slice(15)
       },
-
-      terminalInput: function(){
-        var self = this;
-        if (self.$.userInput.value!="clear"){
-          self.$.terminalOutput.innerHTML+=self.$.line.innerHTML + "&nbsp;" + self.$.userInput.value + '<br>';
-          try {
-            console.oldlog=console.log;
-            console.log = function(){
-              console.oldlog(arguments.toString());
-              return arguments.toString();
-            }
-            self.$.terminalOutput.innerHTML+=eval(self.$.userInput.value) + '<br>';
-          } catch (e) {
-            self.$.terminalOutput.innerHTML+=e + '<br>';
-          }
-          self.$.userInput.value = "";
-        }else{
-          self.$.terminalOutput.innerHTML = "";
-          self.$.userInput.value = "";
-        }
-      },
-
-      prevous: function(){
-        var self= this;
-
-      }
 
     });
   </script>

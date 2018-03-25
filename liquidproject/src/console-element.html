@@ -1,0 +1,202 @@
+<!--
+@license
+-->
+
+<link rel="import" href="../bower_components/polymer/polymer-element.html">
+
+<dom-module id="console-element">
+  <template>
+    <style include="shared-styles">
+
+      #htmlViewer{
+        width: 100%;
+        height: 100%;
+      }
+
+      #terminal{
+        background-color: var(--terminal-background-color, black);
+        color: var(--terminal-color, white);
+        padding-left: 4px;
+        overflow-y: auto;
+        height: 100%;
+      }
+
+      .line, #line{
+        color: var(--terminal-user-color, #11bb00);
+      }
+
+      .error{
+        color: var(--terminal-error-color, #b11100);
+      }
+
+      #userInput{
+        background-color: var(--terminal-background-color);
+        color: var(--terminal-color);
+        height: 24px;
+        border: none;
+        width: auto;
+        margin-left: 10px;
+        font-size: 16px;
+        position: relative;
+        top: -1px;
+      }
+
+      #userInput:focus{
+        outline: none !important;
+      }
+
+    </style>
+
+    <div id="terminal" class="layout vertical" hidden="[[htmlmode]]">
+      <div id="terminalOutput"></div>
+      <div class="layout horizontal start wrap">
+        <span id="line">{{user}} ~ $ {{output}}</span>
+        <iron-a11y-keys target="[[$.userInput]]" keys="down" on-keys-pressed="nextcmd"></iron-a11y-keys>
+        <iron-a11y-keys target="[[$.userInput]]" keys="up" on-keys-pressed="prevouscmd"></iron-a11y-keys>
+        <iron-a11y-keys target="[[$.userInput]]" keys="enter" on-keys-pressed="terminalInput"></iron-a11y-keys>
+        <input id="userInput" type="text" class="flex"/>
+      </div>
+    </div>
+    <div id="htmlViewer" hidden="[[!htmlmode]]"></div>
+
+  </template>
+  <script>
+
+    Polymer({
+      is:'console-element',
+      behaviors: [
+      ],
+      properties: {
+        socket: {
+          type: Object,
+          value: null,
+          notify: true,
+          observer: 'socketObserver',
+        },
+        output: {
+          type: String,
+          value: '',
+          notify: true,
+        },
+        history: {
+          type: Array,
+          value: function(){return [];},
+          notify: true,
+        },
+        historyIndex: {
+          type: Number,
+          value: 1,
+          notify: true,
+        },
+        user:{
+          type: String,
+          value: '',
+          notify: true,
+        },
+        htmlmode:{
+          type: Boolean,
+          value: false,
+          notify: true,
+        },
+        render: {
+          type: String,
+          value: '',
+          notify: true,
+          observer: 'renderHtml',
+        }
+      },
+
+      socketObserver: function(socket){
+        var self = this;
+        if (self.socket){
+          self.socket.on('compilerOutput', function(msg){
+            if (msg.default){
+              self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.default + "</span><br>";
+            }
+          });
+          self.socket.on('compilerErorr', function(msg){
+            self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.error + "</span><br>";
+          });
+        }
+      },
+
+      renderHtml: function(render){
+        var self = this;
+        if (self.htmlmode){
+          self.$.htmlViewer.innerHTML = render;
+        }
+      },
+
+      ready: function() {
+        var self = this;
+        console.log = function(){
+          var msg = "";
+          for (i=0;i<arguments.length;i++){
+            msg += arguments[i] + " ";
+          }
+          return msg;
+        }
+      },
+
+      terminalInput: function(){
+        var self = this;
+        self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+        self.set('historyIndex', 1);
+        self.push('history', self.$.userInput.value);
+        if (self.$.userInput.value!="clear" && self.$.userInput.value!=""){
+          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+          if (!self.serverOutput){
+            try {
+              self.$.terminalOutput.innerHTML += eval(self.$.userInput.value) + '<br>';
+            } catch (e) {
+              self.$.terminalOutput.innerHTML += e + '<br>';
+            }
+          }
+          self.$.userInput.value = "";
+        }else if (self.$.userInput.value=="clear"){
+          self.$.terminalOutput.innerHTML = "";
+          self.$.userInput.value = "";
+        }else{
+          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + "</span><br>"
+        }
+        self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+      },
+
+      prevouscmd: function(){
+        var self= this;
+        self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+        if (self.historyIndex <= self.history.length){
+          self.$.userInput.value = self.history[self.history.length - self.historyIndex];
+          self.set('historyIndex', self.historyIndex + 1);
+        }
+      },
+
+      nextcmd: function(){
+        var self= this;
+        self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+        if (self.historyIndex > 1){
+          self.set('historyIndex', self.historyIndex - 1);
+          self.$.userInput.value = self.history[self.history.length - self.historyIndex];
+        }
+      },
+
+      executeJs: function(js){
+        var self = this;
+        if (!self.serverOutput){
+          try {
+            self.$.terminalOutput.innerHTML+=eval(js) + '<br>';
+          } catch (e) {
+            self.$.terminalOutput.innerHTML+=e + '<br>';
+          }
+          self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+        }
+      },
+
+      newLine: function(msg){
+        var self = this;
+        self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + msg + "<br>";
+      },
+
+    });
+  </script>
+</dom-module>

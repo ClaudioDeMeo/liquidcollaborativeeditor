@@ -277,7 +277,12 @@ app.post('/delete', function(req,res){
 app.post('/downloadexe', function(req,res){
   var flist = JSON.parse(fs.readFileSync(config.FILELIST).toString());
   var file = req.body.file;
-  var fname = file.name.substring(0, file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe';
+  var fname = "";
+  if (file.os && file.os=='linux' && file.arch && file.arch=='x64'){
+    fname = file.name.substring(0, file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length) + '.exe';
+  }else{
+    fname = file.name.substring(0, file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length) + (file.os ? '-' + file.os : '') + (file.arch ? '-' + file.arch : '') + '.exe';
+  }
   var fpath = path.join(prefix, flist[file.fid].room, fname);
   if (flist[file.fid] && fs.existsSync(fpath)){
     if (auth(flist[file.fid].room,req.body.password)){

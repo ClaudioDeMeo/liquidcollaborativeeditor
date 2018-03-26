@@ -403,9 +403,10 @@
         self.lastTimestamp = 0;
         self.revision = -1;
         self.toVerify = null;
-        self.file = null;
         self.$.textEditor.editor.removeAllListeners('change');
         self.$.textEditor.value = "";
+        self.$.console.clear();
+        self.file = null;
       },
 
       goBack: function(){
@@ -450,6 +451,12 @@
         self.socket.on('ok',function(msg){
           self.revision = msg.revision;
           self.socket.emit('history',{revision : self.revision});
+        });
+
+        self.socket.on('compilerEvent', function(msg){
+          if (msg.author){
+            self.show_info(msg.author + " is compiling");
+          }
         });
 
         //someone change language
@@ -638,10 +645,18 @@
         if (self.socket){
           DialogCompile(self.file, self.socket, function(result){
             if (result){
-              self.socket.emit('compile',{file: result.detail.file});
               self.$.console.newLine('compile');
+              self.socket.emit('compile',{file: result.detail.file, author: self.username});
             }
           });
+        }
+      },
+
+      execute: function(){
+        var self = this;
+        if (self.socket){
+          self.$.console.newLine('run');
+          self.socket.emit('run');
         }
       },
 

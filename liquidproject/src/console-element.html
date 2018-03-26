@@ -98,6 +98,11 @@
           value: false,
           notify: true,
         },
+        reqInput:{
+          type: Boolean,
+          value: false,
+          notify: true,
+        },
         render: {
           type: String,
           value: '',
@@ -109,13 +114,46 @@
       socketObserver: function(socket){
         var self = this;
         if (self.socket){
+
           self.socket.on('compilerOutput', function(msg){
             if (msg.default){
-              self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.default + "</span><br>";
+              self.$.terminalOutput.innerHTML+= msg.default + "<br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
             }
           });
-          self.socket.on('compilerErorr', function(msg){
-            self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.error + "</span><br>";
+
+          self.socket.on('compilerFinish', function(msg){
+            if (msg.default && msg.exit){
+              self.$.terminalOutput.innerHTML+= "finish!<br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+            }
+          });
+
+          self.socket.on('compilerError', function(msg){
+            if (msg.error){
+              self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.error + "</span><br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+            }
+          });
+
+          self.socket.on('execOutput', function(msg){
+            self.set('reqInput', true);
+            if (msg.output){
+              self.$.terminalOutput.innerHTML+= msg.output + "<br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+            }
+          });
+
+          self.socket.on('execFinish', function(msg){
+            self.set('reqInput', false);
+          });
+
+          self.socket.on('execErorr', function(msg){
+            self.set('reqInput', false);
+            if (msg.error){
+              self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.error + "</span><br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+            }
           });
         }
       },
@@ -141,23 +179,41 @@
       terminalInput: function(){
         var self = this;
         self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
-        self.set('historyIndex', 1);
-        self.push('history', self.$.userInput.value);
-        if (self.$.userInput.value!="clear" && self.$.userInput.value!=""){
-          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
-          if (!self.serverOutput){
-            try {
-              self.$.terminalOutput.innerHTML += eval(self.$.userInput.value) + '<br>';
-            } catch (e) {
-              self.$.terminalOutput.innerHTML += e + '<br>';
-            }
+        if (!self.reqInput){
+          self.set('historyIndex', 1);
+          if (self.$.userInput.value != ""){
+            self.push('history', self.$.userInput.value);
           }
-          self.$.userInput.value = "";
-        }else if (self.$.userInput.value=="clear"){
-          self.$.terminalOutput.innerHTML = "";
-          self.$.userInput.value = "";
+          switch (self.$.userInput.value) {
+            case "clear":
+              self.clear();
+              break;
+            case "":
+              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + "</span><br>"
+              break;
+            case "compile":
+              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              //TODO
+              self.$.terminalOutput.innerHTML += 'coming soon<br>';
+              break;
+            case "run":
+              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              //TODO
+              self.$.terminalOutput.innerHTML += 'coming soon<br>';
+              break;
+            default:
+              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              try {
+                self.$.terminalOutput.innerHTML += eval(self.$.userInput.value) + '<br>';
+              } catch (e) {
+                self.$.terminalOutput.innerHTML += e + '<br>';
+              }
+              self.$.userInput.value = "";
+          }
         }else{
-          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + "</span><br>"
+          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+          self.socket.emit('execInput',{inpt: self.$.userInput.value});
+          self.$.userInput.value = "";
         }
         self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
       },
@@ -195,6 +251,13 @@
       newLine: function(msg){
         var self = this;
         self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + msg + "<br>";
+        self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+      },
+
+      clear: function(){
+        var self = this;
+        self.$.terminalOutput.innerHTML = "";
+        self.$.userInput.value = "";
       },
 
     });

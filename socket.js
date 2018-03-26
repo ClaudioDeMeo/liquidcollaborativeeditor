@@ -199,48 +199,75 @@ module.exports = function(server){
       .then(function(proc){
         if (proc.default){
           proc.default.stdout.on('data', function(data){
-            debug('compiler default output:', data);
-            socket.emit('compilerOutput', {default: data});
+            debug('compiler default output:', data.toString());
+            socket.emit('compilerOutput', {default: data.toString()});
           });
           proc.default.stderr.on('data', function(err){
-            debug('compiler default error:', err);
-            socket.emit('compilerError', {error: err});
+            debug('compiler default error:', err.toString());
+            socket.emit('compilerError', {error: err.toString()});
           });
-          socket.broadcast.to(socket.room).emit('compilerEvent', {author: msg.author});
+          proc.default.on('exit', function(code){
+            debug('compiler default exit:', code.toString());
+            socket.emit('compilerFinish', {default: code.toString(), exit: true});
+          });
+          proc.default.on('close', function(code){
+            debug('compiler default close:', code.toString());
+            socket.emit('compilerFinish', {default: code.toString(), exit: false});
+          });
+          if (msg.author){
+            socket.broadcast.to(socket.room).emit('compilerEvent', {author: msg.author});
+          }
         }
         if (proc.custom){
           proc.custom.stdout.on('data', function(data){
-            debug('compiler custom output:', data);
-            socket.emit('compilerOutput', {custom: data});
+            debug('compiler custom output:', data.toString());
+            socket.emit('compilerOutput', {custom: data.toString()});
           });
-          proc.default.stderr.on('data', function(err){
-            debug('compiler default error:', err);
-            socket.emit('compilerError', {error: err});
+          proc.custom.stderr.on('data', function(err){
+            debug('compiler custom error:', err.toString());
+            socket.emit('compilerError', {error: err.toString()});
+          });
+          proc.custom.on('exit', function(code){
+            debug('compiler custom exit:', code.toString());
+            socket.emit('compilerFinish', {custom: code.toString()});
+          });
+          proc.custom.on('close', function(code){
+            debug('compiler custom close:', code.toString());
+            socket.emit('compilerFinish', {custom: code.toString()});
           });
         }
       })
       .catch(function(err){
         debug('compiler error:', err);
-        socket.emit("compilerErorr", {error: err});
+        socket.emit("compilerError", {error: err});
       });
     });
 
     socket.on('run', function(msg){
-      compiler.execute(msg.file)
+      debug('request for execute:', flist[socket.room]);
+      compiler.execute(flist[socket.room])
       .then(function(proc){
         executor = proc;
         executor.stdout.on('data', function(data){
-          debug('exec output:', data);
-          socket.emit('execOutput', {output: data});
+          debug('exec output:', data.toString());
+          socket.emit('execOutput', {output: data.toString()});
         });
         executor.stderr.on('data', function(data){
-          debug('exec output:', data);
-          socket.emit('execOutput', {error: data});
+          debug('exec output:', data.toString());
+          socket.emit('execOutput', {error: data.toString()});
+        });
+        executor.on('exit', function(code){
+          debug('exec exit:', code.toString());
+          socket.emit('execFinish', {code: code.toString()});
+        });
+        executor.on('close', function(code){
+          debug('exec close:', code.toString());
+          socket.emit('execFinish', {code: code.toString()});
         });
       })
       .catch(function(err){
         debug('executor error:', err);
-        socket.emit("executorErorr", {error: err});
+        socket.emit("execError", {error: err});
       });
     });
 
@@ -250,7 +277,7 @@ module.exports = function(server){
         executor.stdin.write(msg.input + '\n');
         executor.stdin.end();
       }else{
-        socket.emit("executorErorr", {error: 'process stopped'});
+        socket.emit("execErorr", {error: 'process stopped'});
       }
     });
 

@@ -56,15 +56,38 @@ module.exports = {
     const compiler_config = JSON.parse(fs.readFileSync(config.COMPILER_FILE).toString());
     //controllare se esiste file compilato .exe
     if (compiler_config[file.language]){
-      if(fs.existsSync(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.'))+'.exe'))){
-        if (compiler_config[file.language].compiler){
-          return Promise.resolve(spawn(path.join(prefix,file.room,file.name.substring(0,file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length)+'.exe')));
-        }else{//interpreter
-          return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
+      if (compiler_config[file.language].compiler){
+        var fname = file.name.substring(0,file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length)+'.exe';
+        if(fs.existsSync(path.join(prefix,file.room,fname))){
+          try {
+            return Promise.resolve(spawn(path.join(prefix,file.room,fname)));
+          } catch (e) {
+            return Promise.reject('exec error' + e);
+          }
+        }else{
+          return Promise.reject('file not found');
         }
-      }else{
-        return Promise.reject('file not found');
+      }else{//interpreter
+        if (fs.existsSync(path.join(prefix,file.room,file.name))){
+          try {
+            return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
+          } catch (e) {
+            return Promise.reject('exec error' + e);
+          }
+        }else{
+          return Promise.reject('file not found');
+        }
       }
+      // var fname = file.name.substring(0,file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length)+'.exe';
+      // if(fs.existsSync(path.join(prefix,file.room,fname))){
+      //   if (compiler_config[file.language].compiler){
+      //     return Promise.resolve(spawn(path.join(prefix,file.room,fname)));
+      //   }else{//interpreter
+      //     return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
+      //   }
+      // }else{
+      //   return Promise.reject('file not found');
+      // }
     }else{
       return Promise.reject('can not execute ' + file.language);
     }

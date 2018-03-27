@@ -12,8 +12,8 @@ var path = require('path');
 var randomstring = require("randomstring");
 
 //run janus
-const spawn = require('child_process').spawn;
-var janus = spawn('janus');
+const exec = require('child_process').exec;
+var janus = exec('janus');
 janus.stdout.on('data', function(data){
   const debug = require('debug')('server:janus');
   debug(`${data}`);

@@ -2,7 +2,7 @@ const fs = require('fs');
 const config = require('./config.js');
 const prefix = config.PROJECTFOLDER;
 var path = require('path');
-var spawn = require('child_process').spawn;
+var spawn = require('child_process').spawn;//IDEA use exec
 
 module.exports = {
   compile : function(file){

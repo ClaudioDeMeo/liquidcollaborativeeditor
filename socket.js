@@ -253,7 +253,7 @@ module.exports = function(server){
           socket.emit('execOutput', {output: data.toString()});
         });
         executor.stderr.on('data', function(data){
-          debug('exec output:', data.toString());
+          debug('exec err output:', data.toString());
           socket.emit('execOutput', {error: data.toString()});
         });
         executor.on('exit', function(code){

@@ -656,6 +656,7 @@
         var self = this;
         if (self.socket){
           self.$.console.newLine('run');
+          self.$.console.set('reqInput', true);
           self.socket.emit('run');
         }
       },

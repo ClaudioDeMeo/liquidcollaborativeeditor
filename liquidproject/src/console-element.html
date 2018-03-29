@@ -21,6 +21,10 @@
         height: 100%;
       }
 
+      span:{
+        white-space: pre-line !important;
+      }
+
       .line, #line{
         color: var(--terminal-user-color, #11bb00);
       }
@@ -43,6 +47,10 @@
 
       #userInput:focus{
         outline: none !important;
+      }
+
+      #terminalOutput{
+        white-space: pre;
       }
 
     </style>
@@ -142,6 +150,10 @@
               self.$.terminalOutput.innerHTML+= msg.output + "<br>";
               self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
             }
+            if (msg.error){
+              self.$.terminalOutput.innerHTML+="<span class='error'>" + msg.error + "</span><br>";
+              self.$.terminal.scrollTop = self.$.terminal.scrollHeight;
+            }
           });
 
           self.socket.on('execFinish', function(msg){
@@ -189,20 +201,19 @@
               self.clear();
               break;
             case "":
-              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + "</span><br>"
+              self.$.terminalOutput.innerHTML += "<span class='line'>" + self.$.line.innerHTML + "</span><br>"
               break;
             case "compile":
-              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              self.$.terminalOutput.innerHTML += "<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
               //TODO
               self.$.terminalOutput.innerHTML += 'coming soon<br>';
               break;
             case "run":
-              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
-              //TODO
-              self.$.terminalOutput.innerHTML += 'coming soon<br>';
+              self.$.terminalOutput.innerHTML += "<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              self.socket && self.socket.emit('run');
               break;
             default:
-              self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+              self.$.terminalOutput.innerHTML += "<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
               try {
                 self.$.terminalOutput.innerHTML += eval(self.$.userInput.value) + '<br>';
               } catch (e) {
@@ -211,8 +222,8 @@
               self.$.userInput.value = "";
           }
         }else{
-          self.$.terminalOutput.innerHTML+="<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
-          self.socket.emit('execInput',{inpt: self.$.userInput.value});
+          self.$.terminalOutput.innerHTML += "<span class='line'>" + self.$.line.innerHTML + " &nbsp;</span>" + self.$.userInput.value + '<br>';
+          self.socket.emit('execInput',{input: self.$.userInput.value});
           self.$.userInput.value = "";
         }
         self.$.terminal.scrollTop = self.$.terminal.scrollHeight;

@@ -1,8 +1,9 @@
 const fs = require('fs');
 const config = require('./config.js');
 const prefix = config.PROJECTFOLDER;
-var path = require('path');
-var spawn = require('child_process').spawn;//IDEA use exec
+const path = require('path');
+const spawn = require('child_process').spawn;
+const exec = require('child_process').exec;
 
 module.exports = {
   compile : function(file){
@@ -54,13 +55,12 @@ module.exports = {
   execute : function(file){
     const debug = require('debug')('executor');
     const compiler_config = JSON.parse(fs.readFileSync(config.COMPILER_FILE).toString());
-    //controllare se esiste file compilato .exe
     if (compiler_config[file.language]){
       if (compiler_config[file.language].compiler){
         var fname = file.name.substring(0,file.name.lastIndexOf('.') != -1 ? file.name.lastIndexOf('.') : file.name.length)+'.exe';
         if(fs.existsSync(path.join(prefix,file.room,fname))){
           try {
-            return Promise.resolve(spawn(path.join(prefix,file.room,fname)));
+            return Promise.resolve(spawn('docker',['run','-iv',path.join(prefix,file.room) + ':/project', 'ubuntu:16.04', '/project/'+fname]));
           } catch (e) {
             return Promise.reject('exec error' + e);
           }
@@ -70,7 +70,7 @@ module.exports = {
       }else{//interpreter
         if (fs.existsSync(path.join(prefix,file.room,file.name))){
           try {
-            return Promise.resolve(spawn(compiler_config[file.language].interpreter + path.join(prefix,file.room,file.name)));
+            return Promise.resolve(spawn('docker',['run','-itv',path.join(prefix,file.room) + ':/project', 'ubuntu:16.04', compiler_config[file.language].interpreter + ' /project/'+ file.name]));
           } catch (e) {
             return Promise.reject('exec error' + e);
           }

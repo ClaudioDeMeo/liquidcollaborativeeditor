@@ -30,6 +30,8 @@ The client-side is made with a Polymer framework, so in order to install the dep
 sudo npm i -g bower
 ```
 
+Install docker in order tho allow remote execution of file by the users https://docs.docker.com/install/
+
 ### Installing
 
 Clone the repository and go into project direcoty:

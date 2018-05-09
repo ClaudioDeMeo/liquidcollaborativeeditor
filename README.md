@@ -57,9 +57,59 @@ install the client:
 cd liquidproject
 bower install
 ```
-Config the file "config.js".
+Config the file "config.js" in order to change the follow parameters:
+```
+ //project folder
+  PROJECTFOLDER : __dirname + '/projects/',
 
-Install new compiler on the server and add it in the file "compiler-config.json".
+  //listo of project files
+  FILELIST : __dirname + '/filelist.json',
+
+  //listo of project files
+  ROOMLIST : __dirname + '/roomlist.json',
+
+  //file compiler config
+  COMPILER_FILE: __dirname + '/compiler-config.json',
+
+  //file buffer length
+  HISTORY_LENGTH : 1000,
+
+  //SSL
+  httpsConfig : {
+      key: fs.readFileSync(__dirname + '/ssl/keyfile.key'),
+      cert: fs.readFileSync(__dirname + '/ssl/certfile.pem')
+      //ca: fs.readFileSync('/etc/ssl/private/CAfile.pem')
+  },
+
+  //Protocol
+  PROTOCOL : 'http',
+
+  //HTTP/HTTPS local Server
+  HTTP_PORT : 8040,
+  HTTPS_PORT : 8140,
+
+```
+
+Install new compiler on the server and add it in the file "compiler-config.json" following this structure:
+```
+{
+  "language": {
+    "compiler": {
+      "default": "default_compiler_command",
+      "windows": {
+        "x32": "command_for_compile_in_windows_x32",
+        "x64": "command_for_compile_in_windows_x64"
+      },
+      "linux": {
+        "x32": "command_for_compile_in_linux_x32",
+        "x64": "command_for_compile_in_linux_x64"
+      }
+    },
+    "interpreter": "interpreter_command"
+  }
+}
+
+```
 
 ## Running the server
 

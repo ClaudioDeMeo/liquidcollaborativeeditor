@@ -132,9 +132,12 @@ Open your browser and go on http://localhost:8040.
 
 ## Built With
 
+* [Node.js](https://nodejs.org/en/) - Server implementation
+* [Express.js](http://expressjs.com/) - Web app framework for Node.js
+* [Socket.io](https://socket.io/) - WebSocket framework for Node.js
+* [Janus](https://janus.conf.meetecho.com/docs/) - SFU Server for video conference
 * [Polymer](https://www.polymer-project.org/2.0/start/) - The web framework used
 * [ACE](https://ace.c9.io/) - Library for code editor
-* [Janus](https://janus.conf.meetecho.com/docs/) - SFU Server for video conference
 
 ## Authors
 

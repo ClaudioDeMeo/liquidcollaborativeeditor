@@ -218,34 +218,36 @@
     //data on editor changed event callback
     function _onDataChanged(e){
       var self = document.querySelector('my-liquid-app').$$('file-page');
-      var data = {
-        author : self.socket.id,
-        action : e.action,
-        timestamp : Date.now(),
-        text : e.lines.join('\n'),
-        position : {
-          start : self.$.textEditor.editor.session.doc.positionToIndex({
-            row : e.start.row,
-            column : e.start.column
-          }),
-          end : undefined,
-        },
-        lastRevision : self.revision,
-      };
-      data.position.end = data.position.start + data.text.length;
-      if (self.socket.connected){
-        if (self.toVerify){
-          self.push('toSend',data);
-        }else{
-          self.socket.emit('data',data);
-          self.set('toVerify',data);
-        }
-      }else{
-        var range = {
-          start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
-          end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
-        };
-        _remove(range);
+      if (self.socket){
+          var data = {
+              author : self.socket.id,
+              action : e.action,
+              timestamp : Date.now(),
+              text : e.lines.join('\n'),
+              position : {
+                  start : self.$.textEditor.editor.session.doc.positionToIndex({
+                      row : e.start.row,
+                      column : e.start.column
+                  }),
+                  end : undefined,
+              },
+              lastRevision : self.revision,
+          };
+          data.position.end = data.position.start + data.text.length;
+          if (self.socket.connected){
+              if (self.toVerify){
+                  self.push('toSend',data);
+              }else{
+                  self.socket.emit('data',data);
+                  self.set('toVerify',data);
+              }
+          }else{
+              var range = {
+                  start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                  end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+              };
+              _remove(range);
+          }
       }
       self.$.console.render = self.$.textEditor.value;
     }
@@ -400,6 +402,8 @@
         self.remoteBuffer = [];
         self.toVerify = null;
         self.toSend = [];
+        self.history = [];
+        self.historyIndex = 1;
         self.lastTimestamp = 0;
         self.revision = -1;
         self.toVerify = null;
@@ -451,6 +455,14 @@
         self.socket.on('ok',function(msg){
           self.revision = msg.revision;
           self.socket.emit('history',{revision : self.revision});
+        });
+
+        self.socket.on('execError', function(msg){
+            msg.error && self.show_error(msg.error);
+        });
+
+        self.socket.on('compilerError', function(msg){
+            msg.error && self.show_error(msg.error);
         });
 
         self.socket.on('compilerEvent', function(msg){
@@ -570,10 +582,10 @@
           self.loadFile(function(blob){
             var reader = new FileReader();
             reader.addEventListener("loadend", function(e) {
+              self.$.textEditor.removeAttribute("readonly");
               self.$.textEditor.editor.insert(e.currentTarget.result);
               self.$.console.render = self.$.textEditor.value;
               self.$.textEditor.editor.on('change',_onDataChanged);
-              self.$.textEditor.removeAttribute("readonly");
               while(self.remoteBuffer.length > 0){
                 var data = self.remoteBuffer.shift();
                 switch (data.action){
@@ -644,7 +656,7 @@
         var self = this;
         if (self.socket){
           DialogCompile(self.file, self.socket, function(result){
-            if (result){
+            if (result.detail){
               self.$.console.newLine('compile');
               self.socket.emit('compile',{file: result.detail.file, author: self.username});
             }

@@ -90,10 +90,7 @@
       connectRoom: function(e){
         var self = this;
         var a = self.$.navigator;
-        if (!self.janus){
-          self.createSession();
-        }
-        setTimeout(function(){
+        function checkRoom(){
           self.existRoom(self.roomcandidate, function(result){
             if (result.exists){
               a.click();
@@ -101,8 +98,22 @@
               self.show_error('room ' + result.room + ' not found');
             }
           });
-        },200);
-
+        }
+        if (!self.janus){
+          function init(){
+            self.createSession(function(detail){
+              if (!detail.error){
+                checkRoom();
+              }else{
+                self.log("home-page:connectRoom - error: " + detail.error);
+                setTimeout(init,500);
+              }
+            });
+          }
+          init();
+        }else{
+          checkRoom();
+        }
       },
 
 

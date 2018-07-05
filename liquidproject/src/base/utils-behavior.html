@@ -106,7 +106,7 @@
         }
       },
 
-      createSession: function(){
+      createSession: function(cb){
         var self = this;
         if (!self.janus){
           self.janus = new Janus({
@@ -117,11 +117,13 @@
               Janus.log("Established connection to the server: " + self.janus.getServer() + " (connected=" + self.janus.isConnected() + ")");
               Janus.log("Session was successfully created! ID: " + self.janus.getSessionId());
               //
-              self.attachPlugin();
+              self.attachPlugin(cb);
+              // cb && cb({error: null});
             },
             error: function(cause) {
               Janus.log("Session was not created! because: " + cause);
               self.janus = null;
+              cb && cb({error: cause});
             },
             destroyed: function() {
               Janus.log("Session was destroyed and can't be used any more!");
@@ -133,16 +135,18 @@
         }
       },
 
-      attachPlugin: function(){
+      attachPlugin: function(cb){
         var self = this;
         self.janus && self.janus.attach({
           plugin: "janus.plugin.videoroom",
           success: function(handle){
             self.videoroom = handle;
             self.log("videoroom plugin:", self.videoroom.getPlugin(), 'id:', self.videoroom.getId());
+            cb && cb({error: null});
           },
           error: function(cause) {
             self.log("videoroom Couldn't attach to the plugin because: "+cause);
+            cb && cb({error: cause});
           },
           iceState: function(icestate){
             self.log('videoroom iceState', icestate);
@@ -428,7 +432,7 @@
                 video: remotePublisher.video,
                 audio: remotePublisher.audio,
                 data: remotePublisher.data,
-                pin: self.pin,
+                pin: self.password,
               },
               success: function(result){
                 self.log('openRemotePublisher', result);
@@ -580,10 +584,13 @@
           });
         }
         if (!self.janus || !self.videoroom){
-          self.createSession();
-          setTimeout(function(){
-            sendOffer();
-          },500);
+          self.createSession(function(detail){
+            if(!detail.error){
+              sendOffer();
+            }else{
+              onError("can not connect to the server");
+            }
+          });
         }else{
           sendOffer();
         }
@@ -627,11 +634,13 @@
             },error:function(cause){
               self.log("Request exists error because: " + cause);
               self.show_error('Cannot connect with the room server');
+              cb && cb({error: cause});
             }
           });
         }catch(e){
           self.log("Request exists error: " + e);
           self.show_error('Cannot connect with the room server');
+          cb && cb({error: e});
         }
       },
 

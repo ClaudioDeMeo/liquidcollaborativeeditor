@@ -67,6 +67,14 @@
         font-weight: bold;
       }
 
+      #mainContent{
+        height: calc(100% - 40px);
+      }
+
+      .item{
+        height: 43px !important;
+      }
+
     </style>
 
     <app-location
@@ -75,7 +83,7 @@
     </app-location>
 
     <paper-card>
-      <div class="card-content layout vertical">
+      <div id="mainContent" class="card-content layout vertical">
 
         <div class="card-header">
           <div class=" layout horizontal">
@@ -86,10 +94,10 @@
           </div>
         </div>
 
-        <div id="cardContent" class="card-body">
+        <div id="cardContent" class="card-body flex">
           <hr>
           <!-- JOIN ROOM -->
-          <div class="layout vertical center center-justified" hidden={{room}}>
+          <div class="layout flex vertical center center-justified" hidden={{room}}>
             <div class="layout horizontal center center-justified wrap">
               <iron-a11y-keys target="[[nameInputElement]]" keys="enter" on-keys-pressed="start"></iron-a11y-keys>
               <paper-input
@@ -120,7 +128,7 @@
           <!-- ROOM FILE LIST -->
           <template is="dom-if" if="{{room}}" restamp>
             <template is="dom-repeat" items="[[flist]]">
-              <div class="layout horizontal center">
+              <div class="layout horizontal center item">
                 <paper-button class="file"
                 title="open"
                 file="[[item]]"
@@ -188,13 +196,16 @@
       observers: [
         'roomObserver(room)'
       ],
-
+      //
       roomObserver: function(room){
         var self = this;
-        if(!room){
-          self.$.cardContent.classList.add("flex");
-        }else{
-          self.$.cardContent.classList.remove("flex");
+        if(self.room && self.videoroom.joined){
+          document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          document.cookie = "room=" + self.roomcandidate + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
+          self.refreshFileListInterval = setInterval(function(){
+            self.getFileList(self.room);
+          },1500);
         }
       },
 
@@ -205,34 +216,42 @@
         self.passwordInputElement = self.$.passwordInput;
         self.roomcandidate = self.roomcandidate || self.route.path.substring(self.route.path.lastIndexOf('/') + 1);
         //
-        if (!self.janus){
-          self.createSession();
-        }
-        function checkRoom(){
-          if (self.videoroom){
+        function initRoomPage(){
+          if (self.roomcandidate){
             self.existRoom(self.roomcandidate, function(result){
               if (!result.exists){
                 self.show_error('room ' + result.room + ' not found');
                 window.location.replace("/");
               }
             });
-          }else{
-            setTimeout(checkRoom, 500);
+          }
+          var room = self.getCookie("room");
+          var username = self.getCookie("username");
+          var password =  self.getCookie("password");
+          if (!self.room && self.username == "" && room == self.roomcandidate && username != ""){
+            self.username = username;
+            self.password = password;
+            self.start();
+          }else if (self.room && self.username != "" && self.videoroom.joined){
+              self.refreshFileListInterval = setInterval(function(){
+                self.getFileList(self.room);
+              },1500);
           }
         }
-        //
-        if (self.roomcandidate){
-          checkRoom();
-        }
-        var room = self.getCookie("room");
-        var username = self.getCookie("username");
-        var password =  self.getCookie("password");
-        if (!self.room && self.username == "" && room == self.roomcandidate && username != ""){
-          self.username = username;
-          self.password = password;
-          self.start();
-        }else if (self.room && self.username != ""){
-          self.getFileList(self.room);
+        if (!self.janus){
+          function init(){
+            self.createSession(function(detail){
+              if(!detail.error){
+                initRoomPage();
+              }else{
+                self.log("room-page:ready - error: " + detail.error);
+                setTimeout(init,500);
+              }
+            });
+          }
+          init();
+        }else{
+          initRoomPage();
         }
       },
 
@@ -248,12 +267,7 @@
       start: function(e){
         var self = this;
         self.joinRoom(self.roomcandidate, self.username, self.password, function(result){
-          document.cookie = "username=" + self.username + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-          document.cookie = "password=" + self.password + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-          document.cookie = "room=" + self.roomcandidate + ";expires=" + new Date(new Date().getTime() + 1000*60*60*24).toGMTString() + ";path=/;";
-          self.refreshFileListInterval = setInterval(function(){
-            self.getFileList(self.room);
-          },2000);
+          self.log("room-page: start - joinRoom: request sent");
         });
       },
 

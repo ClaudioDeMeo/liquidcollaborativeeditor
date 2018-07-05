@@ -183,9 +183,6 @@
 
       ready: function(){
         var self = this;
-        if(!self.janus){
-          self.createSession();
-        }
         if (!self.isnewfile){
           self.$.fileInput.onchange = function(){
             if(self.$.fileInput.files.length > 1){
@@ -196,14 +193,29 @@
           };
           // self._checkInput();
         }
-        setTimeout(function(){
+        function initRoomList(){
           self.getRoomList(function(result){
             self.roomlist = [];
             self.set("roomList", result.list.map(function(element){
               return element.room.toString();
             }));
           });
-        }, 200);
+        }
+        if(!self.janus){
+          function init(){
+            self.createSession(function(detail){
+              if(!detail.error){
+                initRoomList();
+              }else{
+                self.log("file-uploader:ready - error: " + detail.error);
+                setTimeout(init,500);
+              }
+            });
+          }
+          init();
+        }else{
+          initRoomList();
+        }
       },
 
       _checkInput: function(){

@@ -297,8 +297,8 @@
                 request: "create",
                 permanent: true,
                 room: parseInt(self.selectedRoom),
-                pin: (self.roomPassword != "") ? self.roomPassword : null,
-                secret: (self.roomPassword != "") ? self.roomPassword : null,
+                pin: self.roomPassword,
+                secret: self.roomPassword,
                 is_private: false,
                 publishers : 10,
                 bitrate: 128000

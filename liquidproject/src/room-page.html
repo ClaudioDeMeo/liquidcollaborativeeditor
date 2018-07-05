@@ -307,8 +307,8 @@
         var self = this;
         var fid = e.currentTarget.fid;
         var fname = self.flist.filter(function(element){
-          return element.fid == fid;
-        }).name;
+          return element.fid === fid;
+        })[0].name;
         self.request('/delete', 'POST', {fid: fid, password: self.password})
           .then(function(ret){
             switch (ret.status) {

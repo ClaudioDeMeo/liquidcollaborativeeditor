@@ -494,10 +494,15 @@
                         end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
                         break;
                       case "remove":
-                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
-                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        if(self.toVerify.position.start < data.position.start){
+                          start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                          end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        }
                         break;
                     }
+                  }else if(self.toVerify){
+                    self.toVerify.position.start = self.toVerify.position.start + (data.position.end - data.position.start);
+                    self.toVerify.position.end = self.toVerify.position.end + (data.position.end - data.position.start);
                   }
                   // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
                   _insert(self.$.textEditor.editor.session.doc.indexToPosition(start),data.text);
@@ -512,10 +517,17 @@
                         end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
                         break;
                       case "remove":
-                        start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
-                        end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        if(self.toVerify.position.start < data.position.start){
+                          start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
+                          end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        }else{
+                          end -= Math.max(data.position.end, self.toVerify.position.end);
+                        }
                         break;
                     }
+                  }else if(self.toVerify){
+                    self.toVerify.position.start = self.toVerify.position.start - (data.position.end - data.position.start);
+                    self.toVerify.position.end = self.toVerify.position.end - (data.position.end - data.position.start);
                   }
                   // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
                   var range = {
@@ -555,13 +567,42 @@
 
         //feedback on data send
         self.socket.on('feedback', function(data){
-          if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp){
+          if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp && self.toVerify.action == data.action){
+            if(data.position.start !== self.toVerify.position.start){
+              var start = null;
+              var end = null;
+              var range = null;
+              switch (self.toVerify.action) {
+                case "insert":
+                  start= self.toVerify.position.start;
+                  end= self.toVerify.position.end;
+                  range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+                  };
+                  _remove(range);
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
+                  break;
+                case "remove":
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(self.toVerify.position.start),self.toVerify.text);
+                  start= data.position.start;
+                  end= data.position.end;
+                  range = {
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+                  };
+                  // self.$.textEditor.editor.session.remove(range);
+                  _remove(range);
+                  self.toSend.unshift(data);
+                  break;
+              }
+            }
             self.set('revision',data.lastRevision);
             if (self.toSend.length > 0){
               var dataToSend = self.toSend.shift();
               dataToSend.lastRevision = self.revision;
-              self.socket.emit('data', dataToSend);
               self.set('toVerify',dataToSend);
+              self.socket.emit('data', dataToSend);
             }else{
               self.toVerify = null;
             }

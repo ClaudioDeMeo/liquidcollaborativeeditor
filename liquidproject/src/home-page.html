@@ -40,7 +40,7 @@
       placeholder="Insert Room"
       on-keyup="_checkRoomInput">
       </paper-input>
-      <paper-button raised on-tap="connectRoom" disabled>
+      <paper-button id="connectBtn" raised on-tap="connectRoom" disabled>
         <iron-icon icon="done"></iron-icon>
         Connect
       </paper-button>
@@ -89,6 +89,7 @@
 
       connectRoom: function(e){
         var self = this;
+        self.$.connectBtn.disabled = true;
         var a = self.$.navigator;
         function checkRoom(){
           self.existRoom(self.roomcandidate, function(result){
@@ -98,6 +99,7 @@
             }else{
               self.show_error('room ' + self.roomcandidate + ' not found');
             }
+            self.$.connectBtn.disabled = false;
           });
         }
         if (!self.janus){

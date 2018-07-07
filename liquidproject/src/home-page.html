@@ -94,7 +94,7 @@
           self.existRoom(self.roomcandidate, function(result){
             if (result.exists){
               // a.click();
-              window.location.href += "room/" + self.roomcandidate + "/";
+              location.replace(self.rootPath + "room/" + self.roomcandidate);
             }else{
               self.show_error('room ' + self.roomcandidate + ' not found');
             }

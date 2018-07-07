@@ -93,9 +93,10 @@
         function checkRoom(){
           self.existRoom(self.roomcandidate, function(result){
             if (result.exists){
-              a.click();
+              // a.click();
+              window.location.href += "room/" + self.roomcandidate + "/";
             }else{
-              self.show_error('room ' + result.room + ' not found');
+              self.show_error('room ' + self.roomcandidate + ' not found');
             }
           });
         }

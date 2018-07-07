@@ -142,8 +142,12 @@ module.exports = function(server){
                 data.position.end += element.position.end - element.position.start;
                 break;
               case "remove":
-                data.position.start -= element.position.end - element.position.start;
-                data.position.end -= element.position.end - element.position.start;
+                if(element.position.start < data.position.start){
+                  data.position.start -= element.position.end - element.position.start;
+                  data.position.end -= element.position.end - element.position.start;
+                }else{
+                  data.position.end -= Math.max(element.position.end, data.position.end);
+                }
                 break;
             }
           }

@@ -477,6 +477,74 @@
         //   self.set('selectedLanguage', data.newLanguage);
         // });
 
+        function syncToSendBuffer(data){
+          self.toSend.forEach(function(element,index){
+            self.toSend[index].lastRevision = self.revision;
+            if(element.position.start <= data.position.start){
+              switch (element.action) {
+                case "insert":
+                  data.position.start += (element.position.end - element.position.start);
+                  data.position.end += (element.position.end - element.position.start);
+                  break;
+                case "remove":
+                  if(element.position.end <= data.position.start){// && element.position.start <= data.position.start
+                    data.position.start -= (element.position.end - element.position.start);
+                    data.position.end -= (element.position.end - element.position.start);
+                  }else{//element.position.start <= data.position.start && element.position.end >= data.position.start
+                    switch (data.action) {
+                      case "insert":
+                        data.position.end -= (data.position.start - element.position.start);
+                        data.position.start = element.position.start;
+                        if(data.position.end <= element.position.end){
+                          self.set("toSend." + index + ".position.start", data.position.end + 1);
+                        }else{
+                          self.split("toSend", index, 1);
+                        }
+                        break;
+                      case "remove":
+                        if(data.position.end < element.position.end){ //&& data.position.start >= element.position.start && data.position.end > element.position.start
+                          data.position.end = data.position.start;
+                          self.set("toSend." + index + ".position.end", data.position.start);
+                        }else{//data.position.start >= element.position.start && data.position.end >= element.position.end
+                          data.position.start = element.position.start;
+                          data.position.end -= data.position.start + (data.position.end - element.position.end);
+                          if(data.position.end <= element.position.end){
+                            self.set("toSend." + index + ".position.end", data.position.start);
+                          }else{
+                            self.split("toSend", index, 1);
+                          }
+                        }
+                        break;
+                    }
+                  }
+                  break;
+              }
+            }else{//data.position.start < element.position.start
+              switch (data.action) {
+                case "insert":
+                  self.set("toSend." + index + ".position.start", element.position.start + (data.position.end - data.position.start));
+                  self.set("toSend." + index + ".position.end", element.position.end + (data.position.end - data.position.start));
+                  break;
+                case "remove":
+                  if(data.position.end <= element.position.start){
+                    self.set("toSend." + index + ".position.start", element.position.start - (data.position.end - data.position.start));
+                    self.set("toSend." + index + ".position.end", element.position.end - (data.position.end - data.position.start));
+                  }else{//data.position.start < element.position.start && data.position.end > element.position.start
+                    if(data.position.end < element.position.end){ //&& data.position.start < element.position.start
+                      data.position.end = element.position.start;
+                      self.set("toSend." + index + ".position.start", data.position.end);
+                    }else{//data.position.start < element.position.start && data.position.end >= element.position.end
+                      data.position.end -= (element.position.start - element.position.start);
+                      self.splice('toSend', index, 1);
+                    }
+                  }
+                  break;
+              }
+            }
+          });
+          return data;
+        }
+
         //operation came from server
         self.socket.on('data', function(data){
           if (!self.$.textEditor.editor.getReadOnly()){
@@ -490,22 +558,26 @@
                   if (self.toVerify && self.toVerify.position.start <= data.position.start){
                     switch (self.toVerify.action) {
                       case "insert":
-                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
-                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        data.position.start += (self.toVerify.position.end - self.toVerify.position.start);
+                        data.position.end += (self.toVerify.position.end - self.toVerify.position.start);
                         break;
                       case "remove":
-                        if(self.toVerify.position.start < data.position.start){
-                          start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
-                          end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
+                        if(self.toVerify.position.end <= data.position.start){
+                          data.position.start -= (self.toVerify.position.end - self.toVerify.position.start);
+                          data.position.end -= (self.toVerify.position.end - self.toVerify.position.start);
+                        }else{//self.toVerify.position.start <= data.position.start && self.toVerify.position.end > data.position.start
+                          data.position.end -= (data.position.start - self.toVerify.position.start);
+                          data.position.start = self.toVerify.position.start;
                         }
                         break;
                     }
-                  }else if(self.toVerify){
-                    self.toVerify.position.start = self.toVerify.position.start + (data.position.end - data.position.start);
-                    self.toVerify.position.end = self.toVerify.position.end + (data.position.end - data.position.start);
+                  }else if(self.toVerify){// && self.toVerify.position.start > data.position.start
+                    self.toVerify.position.start += (data.position.end - data.position.start);
+                    self.toVerify.position.end += (data.position.end - data.position.start);
                   }
                   // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(start),data.text);
+                  data = syncToSendBuffer(data);
+                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
                   break;
                 case 'remove':
                   var start= data.position.start;
@@ -513,45 +585,74 @@
                   if (self.toVerify && self.toVerify.position.start <= data.position.start){
                     switch (self.toVerify.action) {
                       case "insert":
-                        start = data.position.start + (self.toVerify.position.end - self.toVerify.position.start);
-                        end= data.position.end + (self.toVerify.position.end - self.toVerify.position.start);
+                        data.position.start += (self.toVerify.position.end - self.toVerify.position.start);
+                        data.position.end += (self.toVerify.position.end - self.toVerify.position.start);
                         break;
                       case "remove":
-                        if(self.toVerify.position.start < data.position.start){
-                          start = data.position.start - (self.toVerify.position.end - self.toVerify.position.start);
-                          end= data.position.end - (self.toVerify.position.end - self.toVerify.position.start);
-                        }else{
-                          end -= Math.max(data.position.end, self.toVerify.position.end);
+                        if(self.toVerify.position.end <= data.position.start){
+                          data.position.start -= (self.toVerify.position.end - self.toVerify.position.start);
+                          data.position.end -= (self.toVerify.position.end - self.toVerify.position.start);
+                        }else{//self.toVerify.position.end > data.position.start
+                          if(self.toVerify.position.end < data.position.end){
+                            data.position.end = self.toVerify.position.start + (self.toVerify.position.end - data.position.start);
+                            data.position.start = self.toVerify.position.start;
+                          }else{//self.toVerify.position.end > data.position.end
+                            data.position.end = data.position.start;
+                          }
                         }
                         break;
                     }
-                  }else if(self.toVerify){
-                    self.toVerify.position.start = self.toVerify.position.start - (data.position.end - data.position.start);
-                    self.toVerify.position.end = self.toVerify.position.end - (data.position.end - data.position.start);
+                  }else if(self.toVerify){// && self.toVerify.position.start > data.position.start
+                    switch (self.toVerify.action) {
+                      case "insert":
+                        if(data.position.end <= self.toVerify.position.start){
+                          self.toVerify.position.start -= (data.position.end - data.position.start);
+                          self.toVerify.position.end -= (data.position.end - data.position.start);
+                        }else{//data.position.end > self.toVerify.position.start
+                          if(data.position.end < self.toVerify.position.end){
+                            self.toVerify.position.end -= (self.toVerify.position.start - data.position.start);
+                            self.toVerify.position.start = data.position.start;
+                            data.position.end = self.toVerify.position.start;
+                          }else{//data.position.end >= self.toVerify.position.end
+                            //TODO ?
+                            var range = {
+                              start : self.$.textEditor.editor.session.doc.indexToPosition(self.toVerify.position.end),
+                              end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
+                            }
+                            _remove(range);
+                            data.position.end = self.toVerify.position.start;
+                            self.toVerify.position.end -= (self.toVerify.position.start - data.position.start);
+                            self.toVerify.position.start = data.position.start;
+                          }
+                        }
+                        break;
+                      case "remove":
+                        if(data.position.end <= self.toVerify.position.start){
+                          self.toVerify.position.start -= (data.position.end - data.position.start);
+                          self.toVerify.position.end -= (data.position.end - data.position.start);
+                        }else{//data.position.end > self.toVerify.position.start
+                          if(data.position.end < self.toVerify.position.end){
+                            self.toVerify.position.end = data.position.start + (data.position.end - self.toVerify.position.start);
+                            self.toVerify.position.start = data.position.start;
+                            data.position.end = self.toVerify.position.start;
+                          }else{//data.position.end >= self.toVerify.position.end
+                            data.position.end -= (self.toVerify.position.end - self.toVerify.position.start);
+                            self.toVerify.position.start = (self.toVerify.position.end = data.position.start);
+                          }
+                        }
+                        break;
+
+                    }
                   }
                   // var position = self.$.textEditor.editor.session.doc.indexToPosition(data.position.start);
+                  data = syncToSendBuffer(data);
                   var range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+                    start : self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),
+                    end : self.$.textEditor.editor.session.doc.indexToPosition(data.position.end)
                   }
                   _remove(range);
                   break;
               }
-              self.toSend.forEach(function(element,index){
-                self.toSend[index].lastRevision = self.revision;
-                if (data.position.start <= element.position.start){
-                  switch (data.action) {
-                    case "insert":
-                      self.toSend[index].position.start += data.position.end - data.position.start;
-                      self.toSend[index].position.end += data.position.end - data.position.start;
-                      break;
-                    case "remove":
-                      self.toSend[index].position.start -= data.position.end - data.position.start;
-                      self.toSend[index].position.end -= data.position.end - data.position.start;
-                      break;
-                  }
-                }
-              });
               self.markWriting(data.writer);
             }
           }else{
@@ -568,35 +669,36 @@
         //feedback on data send
         self.socket.on('feedback', function(data){
           if (self.toVerify.author == data.author && self.toVerify.timestamp == data.timestamp && self.toVerify.action == data.action){
-            if(data.position.start !== self.toVerify.position.start){
-              var start = null;
-              var end = null;
-              var range = null;
-              switch (self.toVerify.action) {
-                case "insert":
-                  start= self.toVerify.position.start;
-                  end= self.toVerify.position.end;
-                  range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
-                  };
-                  _remove(range);
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
-                  break;
-                case "remove":
-                  _insert(self.$.textEditor.editor.session.doc.indexToPosition(self.toVerify.position.start),self.toVerify.text);
-                  start= data.position.start;
-                  end= data.position.end;
-                  range = {
-                    start : self.$.textEditor.editor.session.doc.indexToPosition(start),
-                    end : self.$.textEditor.editor.session.doc.indexToPosition(end)
-                  };
-                  // self.$.textEditor.editor.session.remove(range);
-                  _remove(range);
-                  self.toSend.unshift(data);
-                  break;
-              }
-            }
+            // if(data.position.start !== self.toVerify.position.start){
+            //   // syncToSendBuffer(data);
+            //   var start = null;
+            //   var end = null;
+            //   var range = null;
+            //   switch (self.toVerify.action) {
+            //     case "insert":
+            //       start= self.toVerify.position.start;
+            //       end= self.toVerify.position.end;
+            //       range = {
+            //         start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+            //         end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+            //       };
+            //       _remove(range);
+            //       _insert(self.$.textEditor.editor.session.doc.indexToPosition(data.position.start),data.text);
+            //       break;
+            //     case "remove":
+            //       _insert(self.$.textEditor.editor.session.doc.indexToPosition(self.toVerify.position.start),self.toVerify.text);
+            //       start= data.position.start;
+            //       end= data.position.end;
+            //       range = {
+            //         start : self.$.textEditor.editor.session.doc.indexToPosition(start),
+            //         end : self.$.textEditor.editor.session.doc.indexToPosition(end)
+            //       };
+            //       // self.$.textEditor.editor.session.remove(range);
+            //       _remove(range);
+            //       // self.toSend.unshift(data);
+            //       break;
+            //   }
+            // }
             self.set('revision',data.lastRevision);
             if (self.toSend.length > 0){
               var dataToSend = self.toSend.shift();

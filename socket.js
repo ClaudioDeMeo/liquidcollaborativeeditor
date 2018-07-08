@@ -82,10 +82,10 @@ module.exports = function(server){
       socket.join(msg.fid);
       socket.room = msg.fid;
       writer = msg.writer;
-      if (flist[socket.room] && fhistory[socket.room]){
+      if (flist[socket.room]){
         fpath = path.join(prefix,flist[socket.room].room,flist[socket.room].name);
         debug('new participant: %s (id %s) in room: %s request file: %s', writer , socket.id,socket.room,fpath);
-        socket.emit('ok',{revision: fhistory[socket.room].buffer.length})
+        fhistory[socket.room] && socket.emit('ok',{revision: fhistory[socket.room].buffer.length})
       }else{
         debug("ready: file " + socket.room +  " not found");
         socket.emit('fileNotFound', {error: 'file not found'});
@@ -135,20 +135,41 @@ module.exports = function(server){
       if (fs.existsSync(fpath) && fhistory[socket.room]){
         for (let i = data.lastRevision + 1; i< fhistory[socket.room].buffer.length; i++){
           var element = fhistory[socket.room].buffer[i];
-          if (element.position.start <= data.position.start && data.author != element.author){
+          if (element.position.start <= data.position.start /*&& data.author != element.author*/){
             switch (element.action) {
               case "insert":
-                data.position.start += element.position.end - element.position.start;
-                data.position.end += element.position.end - element.position.start;
+                data.position.start += (element.position.end - element.position.start);
+                data.position.end += (element.position.end - element.position.start);
                 break;
               case "remove":
-                if(element.position.start < data.position.start){
-                  data.position.start -= element.position.end - element.position.start;
-                  data.position.end -= element.position.end - element.position.start;
-                }else{
-                  data.position.end -= Math.max(element.position.end, data.position.end);
+                if(element.position.end <= data.position.start){
+                  data.position.start -= (element.position.end - element.position.start);
+                  data.position.end -= (element.position.end - element.position.start);
+                }else{//data.position.start >= element.position.start && data.position.start < element.position.end
+                  switch (data.action) {
+                    case "insert":
+                      data.position.end -= (data.position.start + element.position.start);
+                      data.position.start = element.position.start;
+                      break;
+                    case "remove":
+                      if(data.position.end < element.position.end){ //&& data.position.start >= element.position.start && data.position.end > element.position.start
+                        data.position.end = data.position.start;
+                      }else{//data.position.start >= element.position.start && data.position.end >= element.position.end
+                        data.position.start = element.position.start;
+                        data.position.end -= data.position.start + (data.position.end - element.position.end);
+                      }
+                      break;
+                  }
                 }
                 break;
+            }
+          }else /*if(data.author != element.author)*/{//&& data.position.start < element.position.start
+            if(data.action == "remove" && element.action == "remove" && data.position.end > element.position.start){
+              if(data.position.end < element.position.end){ //&& data.position.end > element.position.start
+                data.position.end = element.position.start;
+              }else{//data.position.start <= element.position.start && data.position.end >= element.position.end
+                data.position.end -= (element.position.end - element.position.start);
+              }
             }
           }
         }
